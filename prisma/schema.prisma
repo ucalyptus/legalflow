@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Case {
+  id          String      @id @default(uuid())
+  title       String
+  clientName  String
+  status      CaseStatus  @default(PENDING)
+  nextHearing DateTime?
+  updatedAt   DateTime    @updatedAt
+  priority    Priority    @default(MEDIUM)
+  caseType    String
+  assignedTo  String[]
+  filingDate  DateTime    @default(now())
+  documents   Document[]
+  createdAt   DateTime    @default(now())
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  url       String
+  type      String
+  size      Int
+  status    DocStatus @default(DRAFT)
+  caseId    String?
+  case      Case?    @relation(fields: [caseId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+}
+
+enum CaseStatus {
+  ONGOING
+  SETTLED
+  UNDER_REVIEW
+  PENDING
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum DocStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+} 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getCases } from "@/app/actions/documents"
 
 interface CaseItem {
   id: string
@@ -49,48 +50,19 @@ interface CaseItem {
   filingDate: string
 }
 
-const cases: CaseItem[] = [
-  {
-    id: "1",
-    title: "ABC Corp vs XYZ Ltd",
-    clientName: "ABC Corporation",
-    status: "Ongoing",
-    nextHearing: "2024-03-01",
-    updatedAt: "2024-02-23",
-    priority: "High",
-    caseType: "Corporate Dispute",
-    assignedTo: ["John Doe", "Jane Smith"],
-    filingDate: "2024-01-15"
-  },
-  {
-    id: "2",
-    title: "State vs John Doe",
-    clientName: "State Government",
-    status: "Under Review",
-    updatedAt: "2024-02-22",
-    priority: "Medium",
-    caseType: "Criminal",
-    assignedTo: ["Alice Johnson"],
-    filingDate: "2024-02-01"
-  },
-  {
-    id: "3",
-    title: "Property Dispute - Singh vs Kumar",
-    clientName: "Mr. Singh",
-    status: "Pending",
-    nextHearing: "2024-03-15",
-    updatedAt: "2024-02-21",
-    priority: "Low",
-    caseType: "Civil",
-    assignedTo: ["Bob Wilson", "Carol Brown"],
-    filingDate: "2024-02-10"
-  }
-]
-
 export default function CasesPage() {
+  const [cases, setCases] = useState<CaseItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+
+  useEffect(() => {
+    async function loadCases() {
+      const loadedCases = await getCases()
+      setCases(loadedCases)
+    }
+    loadCases()
+  }, [])
 
   const filteredCases = cases.filter(case_ => {
     const matchesSearch = 

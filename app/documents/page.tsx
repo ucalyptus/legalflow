@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,7 @@ import {
   Upload 
 } from "lucide-react"
 import { DocumentUpload } from "@/components/documents/document-upload"
-import { createClient } from "@supabase/supabase-js"
+import { getDocuments } from "@/app/actions/documents"
 
 interface DocumentItem {
   id: string
@@ -23,34 +23,11 @@ interface DocumentItem {
   status: "Draft" | "Submitted" | "Under Review" | "Approved"
   type: string
   lastModified: string
+  url: string
 }
 
-const documents: DocumentItem[] = [
-  {
-    id: "1",
-    title: "Contract Agreement - ABC Corp",
-    caseTitle: "ABC Corp vs XYZ Ltd",
-    status: "Under Review",
-    type: "Contract",
-    lastModified: "2024-02-23"
-  },
-  {
-    id: "2",
-    title: "Pleading Document - Case 123",
-    caseTitle: "State vs John Doe",
-    status: "Approved",
-    type: "Pleading",
-    lastModified: "2024-02-22"
-  },
-  // Add more sample documents as needed
-]
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY!
-)
-
 export default function DocumentsPage() {
+  const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -58,10 +35,18 @@ export default function DocumentsPage() {
   const [sortBy, setSortBy] = useState("recent")
   const [isUploadOpen, setIsUploadOpen] = useState(false)
 
+  useEffect(() => {
+    async function loadDocuments() {
+      const docs = await getDocuments()
+      setDocuments(docs)
+    }
+    loadDocuments()
+  }, [])
+
   const filteredDocuments = documents
     .filter(doc => {
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.caseTitle.toLowerCase().includes(searchQuery.toLowerCase())
+        doc.caseTitle?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesStatus = statusFilter === "all" || doc.status.toLowerCase().replace(" ", "-") === statusFilter
       const matchesType = typeFilter === "all" || doc.type.toLowerCase() === typeFilter
       return matchesSearch && matchesStatus && matchesType
@@ -117,7 +102,15 @@ export default function DocumentsPage() {
             <Card 
               key={doc.id} 
               className="p-4 cursor-pointer hover:bg-gray-50"
-              onClick={() => setSelectedDocument(doc)}
+              onClick={() => setSelectedDocument({
+                id: doc.id,
+                title: doc.title,
+                url: doc.url,
+                type: doc.type,
+                status: doc.status,
+                caseTitle: doc.caseTitle,
+                lastModified: doc.lastModified
+              })}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
