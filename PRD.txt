@@ -1,0 +1,167 @@
+## **1. Overview**
+
+**Product Name**: LegalFlow
+**Version**: V1
+**Objective**: LegalFlow is a legal workflow automation and management platform designed for Indian law firms and legal practitioners. The MVP aims to streamline case management, document handling, filings, and AI-powered legal assistance.
+
+## **2. Information Architecture (IA)**
+
+**Top Bar:**
+
+- Title/Path
+- Search Bar
+
+**Right Tab:**
+
+- Notifications
+- Activity Log
+
+**Left Tab (Navigation Panel):**
+
+- Dashboard
+- Cases
+- Documents
+- Ask AI
+- Filings
+- Settings
+- Account
+
+## **3. Feature Specifications**
+
+### **3.1 Dashboard**
+
+Widgets:
+
+- **Action Items Widget**: Displays tasks that require immediate attention (e.g., pending reviews, due filings, case updates).
+- **Cases Overview**: Summarizes active cases, status, deadlines, and important milestones.
+- **Filings & Deadlines**: Highlights upcoming legal filings and deadlines.
+- **Key Performance Metrics**:
+    - Number of active cases
+    - Pending documents for review
+    - Filings submitted this month
+    - AI-assisted legal research completed
+- **Calendar View**: Integrates court dates, internal deadlines, and filings.
+- **Suggested Additions**:
+    - Recently accessed cases/documents
+    - Customizable KPI widgets based on user roles
+
+### **3.2 Cases Management**
+
+- **Active Case Widget**: Highlights ongoing critical cases.
+- **Cases List View**:
+    - Case Title
+    - Client Name
+    - People Involved
+    - Case Type
+    - Status (Ongoing, Settled, Under Review, etc.)
+    - Milestone/Deadline
+    - Actions (Edit, Assign, Update Status, etc.)
+    - Notifications (New filings, hearing dates, critical updates)
+    - **Action CTA**: Quick actions such as updating case status, adding notes, or sharing with team members.
+- **Functionalities**:
+    - Sorting and Filtering (by date, status, priority, client, etc.)
+    - CRUD Operations (Create, Read, Update, Delete cases)
+    - **Backward Compatibility**:
+        - **Automated Data Extraction**: Use AI-powered document parsing tools to extract structured data from case files.
+        - **Bulk Import Tools**: Allow law firms to upload existing case records in CSV, JSON, or XML format for migration.
+        - **API Integrations**: Connect with existing case management systems to pull structured case metadata.
+        - **Field Mapping Engine**: Create a system that maps existing case attributes to LegalFlow’s data model.
+        - **Custom Mapping Rules**: Provide flexibility for firms to define their own mapping if their old system has a unique structure.
+        - **Document Versioning**: Maintain old case files and attach them to new cases while retaining historical versions.
+        - **AI-Powered Categorization**: Use AI to classify and tag old case documents, filings, and client data for easy retrieval.
+        - **Search & Indexing**: Enable full-text search across old and new case files to make past case law and filings easily accessible.
+        - **Parallel Processing Mode**: Allow firms to continue using their old system while LegalFlow runs alongside, gradually integrating old cases.
+        - **Data Validation & Audit Logs**: Ensure all migrated cases comply with data integrity and legal regulations.
+
+### **3.3 Documents Management**
+
+- **Documents List View**:
+    - Document Title
+    - Associated Case Title
+    - Status (Draft, Submitted, Under Review, Approved)
+    - Document Type (Contract, Pleading, Agreement, etc.)
+    - **Actions CTA** (Edit, Download, Share, File Online)
+- **Functionalities**:
+    - Sorting and Filtering (by status, type, date, case association, etc.)
+    - CRUD Operations (Create, Read, Update, Delete documents)
+    - AI-powered document search and categorization
+    - Bulk actions (approve, delete, archive, share)
+    - **Automatic Drafting**: If a previously drafted document is uploaded, the system suggests a structured draft based on similar past documents.
+    - **Drag & Drop Clause Library**: Users can select and insert predefined clauses, paragraphs, and templates into drafts.
+
+### **3.3.1 Expanded Document View**
+
+- **Document Display**: Rich text or Markdown format
+- **Editing & Annotation**: Acrobat Pro/Word Doc-like functionalities
+- **AI-powered Operations**:
+    - **Draft**: Generate legal drafts based on past cases/precedents
+    - **Summarize**: Provide concise overviews of documents
+    - **Review**: AI-assisted review of legal documents
+    - **Suggest**: AI-driven modifications and improvements
+    - **Extract**: Extract key dates, events, clauses
+
+### **3.4 Ask AI (Legal AI Assistant)**
+
+- **Chat Interface**: Open-ended conversational AI for legal queries
+- **Capabilities**:
+    - Access legal precedents and laws
+    - Retrieve case-specific and document-based insights
+    - Summarize complex legal texts
+    - Provide AI-powered legal strategy suggestions
+    - Assist in document drafting and contract review
+
+### **3.5 Filings Management**
+
+- **Objective**: Provide a seamless interface to file legal documents with government platforms (e-Courts, Tribunals, etc.).
+- **Key Features**:
+    - Pre-filled form templates based on case data
+    - Integration with government e-filing portals
+    - Real-time status tracking of filings
+    - Notifications for deadlines and submission updates
+
+### **3.6 Email Ingestion & Case Data Forwarding**
+
+- **Objective**: Enable users to forward emails to a dedicated workspace email address that automatically processes and links information to relevant cases.
+- **Key Features**:
+    - Each case is assigned a unique workspace email ID.
+    - Incoming emails are parsed to extract attachments, metadata, and relevant content.
+    - Automatic categorization and association of forwarded emails with the appropriate case.
+    - AI-powered extraction of key legal information from email content.
+    - Notifications for new email data linked to a case.
+    - Search and filter capabilities for all forwarded emails within a case.
+
+## **4. Design & User Experience**
+
+- **Minimalistic UI with a focus on efficiency**
+- **Dark & Light Mode Support**
+- **Drag-and-drop file uploads in Documents and Filings**
+- **Role-based access for different users (Lawyers, Paralegals, Clients)**
+- **Mobile-responsive design for on-the-go access**
+
+## **5. Technical Specifications**
+
+### **5.1 Tech Stack**
+
+### **Back-End:**
+
+- **Language:** JavaScript
+- **Framework:** Node.js
+
+### **Front-End:**
+
+- **Framework:** Next.js 14
+- **Styling:** TailwindCSS, CSS Modules
+
+### **Database:**
+
+- **Primary Database:** PostgreSQL
+- **ORM:** Prisma
+- **Deployment:** Railway / Supabase
+
+### **AI/ML Integration:**
+
+- **Libraries:** Google Vertex AI, Azure Cognitive Services, Huggingface API, Pinecone/Weaviate, Langchain/LangGraph
+
+---
+
+This PRD serves as the foundational document for building the LegalFlow V1 MVP.

@@ -4,10 +4,20 @@ import type React from "react"
 
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Bell, FileText, Grid, LayoutDashboard, MessageSquareText, Search, Settings, Star, Upload } from "lucide-react"
+import { Bell, FileText, Grid, LayoutDashboard, MessageSquareText, Search, Settings, Star, Upload, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { createClient } from "@supabase/supabase-js"
 
 interface NavItemProps {
   icon: React.ReactNode
@@ -44,6 +54,47 @@ function NotificationItem({ time }: { time: string }) {
     </div>
   )
 }
+
+// Add this interface for case data
+interface CaseItem {
+  id: string
+  title: string
+  clientName: string
+  status: "Ongoing" | "Settled" | "Under Review" | "Pending"
+  nextHearing?: string
+  updatedAt: string
+  priority: "High" | "Medium" | "Low"
+}
+
+// Sample case data
+const recentCases: CaseItem[] = [
+  {
+    id: "1",
+    title: "ABC Corp vs XYZ Ltd",
+    clientName: "ABC Corporation",
+    status: "Ongoing",
+    nextHearing: "2024-03-01",
+    updatedAt: "2024-02-23",
+    priority: "High"
+  },
+  {
+    id: "2",
+    title: "State vs John Doe",
+    clientName: "State Government",
+    status: "Under Review",
+    updatedAt: "2024-02-22",
+    priority: "Medium"
+  },
+  {
+    id: "3",
+    title: "Property Dispute - Singh vs Kumar",
+    clientName: "Mr. Singh",
+    status: "Pending",
+    nextHearing: "2024-03-15",
+    updatedAt: "2024-02-21",
+    priority: "Low"
+  }
+]
 
 export default function LegalFlow() {
   return (
@@ -97,18 +148,91 @@ export default function LegalFlow() {
         </header>
 
         <main className="p-6">
-          <h1 className="text-xl font-semibold">Hi User!</h1>
-          <Card className="mt-4 bg-[#eaffe2] p-4">
-            <p>You have 3 action items --</p>
-          </Card>
-          <Card className="mt-4 bg-[#e2e9ff] p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Welcome back!</h1>
+            <Button variant="outline">
+              <FileText className="mr-2 h-4 w-4" />
+              New Case
+            </Button>
+          </div>
+
+          <div className="mt-6 grid gap-6 md:grid-cols-3">
+            <Card className="bg-blue-50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-blue-900">
+                  Active Cases
+                </CardTitle>
+                <div className="text-2xl font-bold text-blue-900">24</div>
+              </CardHeader>
+            </Card>
+            <Card className="bg-green-50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-green-900">
+                  Cases Won
+                </CardTitle>
+                <div className="text-2xl font-bold text-green-900">18</div>
+              </CardHeader>
+            </Card>
+            <Card className="bg-purple-50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-purple-900">
+                  Pending Review
+                </CardTitle>
+                <div className="text-2xl font-bold text-purple-900">7</div>
+              </CardHeader>
+            </Card>
+          </div>
+
+          <div className="mt-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Cases</h2>
-              <Button variant="ghost" size="icon">
-                <Grid className="h-5 w-5" />
+              <h2 className="text-lg font-medium">Latest Cases</h2>
+              <Button variant="ghost" size="sm">
+                View All
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-          </Card>
+            <div className="mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Case Title</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Next Hearing</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentCases.map((case_) => (
+                    <TableRow key={case_.id} className="cursor-pointer hover:bg-gray-50">
+                      <TableCell className="font-medium">{case_.title}</TableCell>
+                      <TableCell>{case_.clientName}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          case_.status === "Ongoing" ? "default" :
+                          case_.status === "Under Review" ? "warning" :
+                          case_.status === "Settled" ? "success" : "secondary"
+                        }>
+                          {case_.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          case_.priority === "High" ? "destructive" :
+                          case_.priority === "Medium" ? "warning" : "secondary"
+                        }>
+                          {case_.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{case_.nextHearing || "Not Scheduled"}</TableCell>
+                      <TableCell>{case_.updatedAt}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </main>
       </div>
 

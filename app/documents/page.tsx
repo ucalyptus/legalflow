@@ -1,8 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { DocumentFilters } from "@/components/documents/document-filters"
+import { DocumentViewer } from "@/components/documents/document-viewer"
 import { 
   Download, 
   FileText, 
@@ -10,6 +13,8 @@ import {
   Share2, 
   Upload 
 } from "lucide-react"
+import { DocumentUpload } from "@/components/documents/document-upload"
+import { createClient } from "@supabase/supabase-js"
 
 interface DocumentItem {
   id: string
@@ -40,7 +45,42 @@ const documents: DocumentItem[] = [
   // Add more sample documents as needed
 ]
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_KEY!
+)
+
 export default function DocumentsPage() {
+  const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [sortBy, setSortBy] = useState("recent")
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
+
+  const filteredDocuments = documents
+    .filter(doc => {
+      const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.caseTitle.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesStatus = statusFilter === "all" || doc.status.toLowerCase().replace(" ", "-") === statusFilter
+      const matchesType = typeFilter === "all" || doc.type.toLowerCase() === typeFilter
+      return matchesSearch && matchesStatus && matchesType
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "recent":
+          return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        case "oldest":
+          return new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime()
+        case "name-asc":
+          return a.title.localeCompare(b.title)
+        case "name-desc":
+          return b.title.localeCompare(a.title)
+        default:
+          return 0
+      }
+    })
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="border-b">
@@ -53,9 +93,11 @@ export default function DocumentsPage() {
                 type="search"
                 placeholder="Search documents..."
                 className="w-[200px] pl-8 md:w-[300px]"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button>
+            <Button onClick={() => setIsUploadOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />
               Upload
             </Button>
@@ -64,9 +106,19 @@ export default function DocumentsPage() {
       </div>
 
       <div className="p-4">
+        <DocumentFilters
+          onStatusChange={setStatusFilter}
+          onTypeChange={setTypeFilter}
+          onSortChange={setSortBy}
+        />
+
         <div className="grid gap-4">
-          {documents.map((doc) => (
-            <Card key={doc.id} className="p-4">
+          {filteredDocuments.map((doc) => (
+            <Card 
+              key={doc.id} 
+              className="p-4 cursor-pointer hover:bg-gray-50"
+              onClick={() => setSelectedDocument(doc)}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <FileText className="h-8 w-8 text-blue-500" />
@@ -103,6 +155,16 @@ export default function DocumentsPage() {
           ))}
         </div>
       </div>
+
+      <DocumentViewer
+        document={selectedDocument}
+        onClose={() => setSelectedDocument(null)}
+      />
+
+      <DocumentUpload 
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+      />
     </div>
   )
 } 
