@@ -66,6 +66,11 @@ export default function DocumentsPage() {
       }
     })
 
+  const refreshDocuments = async () => {
+    const docs = await getDocuments()
+    setDocuments(docs)
+  }
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="border-b">
@@ -157,6 +162,7 @@ export default function DocumentsPage() {
       <DocumentUpload 
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        onUploadComplete={refreshDocuments}
       />
     </div>
   )

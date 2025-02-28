@@ -11,6 +11,7 @@ import { Loader2, Upload, X } from "lucide-react"
 interface DocumentUploadProps {
   isOpen: boolean
   onClose: () => void
+  onUploadComplete: () => void
 }
 
 interface UploadedFile {
@@ -19,7 +20,7 @@ interface UploadedFile {
   size: number
 }
 
-export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
+export function DocumentUpload({ isOpen, onClose, onUploadComplete }: DocumentUploadProps) {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
@@ -32,8 +33,8 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
 
     setIsUploading(true)
     try {
-      // Here you can add additional metadata or processing if needed
       toast.success("Documents uploaded successfully")
+      onUploadComplete()
       router.refresh()
       onClose()
       setUploadedFiles([])
@@ -65,6 +66,7 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
                     url: file.url,
                     size: file.size
                   }))])
+                  onUploadComplete()
                 }
               }}
               onUploadError={(error: Error) => {

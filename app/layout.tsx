@@ -5,6 +5,7 @@ import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin"
 import { extractRouterConfig } from "uploadthing/server"
 import { ourFileRouter } from "@/app/api/uploadthing/core"
 import { Toaster } from "sonner"
+import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -20,15 +21,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <Providers>
+          <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
+        </Providers>
         <Toaster />
       </body>
     </html>
