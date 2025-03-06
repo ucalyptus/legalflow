@@ -172,11 +172,127 @@ async function getResults(jobId: string) {
 }
 
 interface ExtractedInfo {
-  caseNumber: string
-  date: string
-  parties: string[]
-  advocates: string[]
-  summary: string
+  title?: string
+  date?: string
+  parties?: string[]
+  advocates?: string[]
+  summary?: string
+  content?: string
+}
+
+function extractTitle(content: string): string {
+  // Look for a title at the start of the document
+  const lines = content.split('\n')
+  const titleLine = lines.find(line => 
+    line.trim().length > 0 && 
+    !line.startsWith('#') && 
+    !line.match(/^[0-9.]+/) &&
+    line.length < 100
+  )
+  return titleLine?.trim() || ''
+}
+
+function extractDate(content: string): string {
+  // Look for dates in various formats
+  const datePatterns = [
+    /\d{1,2}(?:st|nd|rd|th)?\s+\w+,?\s+\d{4}/,  // 21st March, 2024
+    /\d{1,2}[-/]\d{1,2}[-/]\d{4}/,              // 21-03-2024 or 21/03/2024
+    /\w+\s+\d{1,2},?\s+\d{4}/                    // March 21, 2024
+  ]
+  
+  for (const pattern of datePatterns) {
+    const match = content.match(pattern)
+    if (match) return match[0]
+  }
+  return ''
+}
+
+function extractParties(content: string): string[] {
+  const parties: string[] = []
+  const lines = content.split('\n')
+  
+  // Look for vs. or versus pattern
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].match(/vs\.|versus/i)) {
+      const prevLine = lines[i-1]?.replace(/[#\d\.]/g, '').trim()
+      const nextLine = lines[i+1]?.replace(/[#\d\.]/g, '').trim()
+      if (prevLine) parties.push(prevLine)
+      if (nextLine) parties.push(nextLine)
+    }
+  }
+  
+  return parties
+}
+
+function extractAdvocates(content: string): string[] {
+  const advocates: string[] = []
+  const lines = content.split('\n')
+  
+  // Look for advocate indicators
+  const advocatePatterns = [
+    /…\s*for the/i,
+    /appearing for/i,
+    /counsel for/i,
+    /advocate for/i
+  ]
+  
+  for (let i = 0; i < lines.length; i++) {
+    for (const pattern of advocatePatterns) {
+      if (lines[i].match(pattern)) {
+        const advocate = lines[i-1]?.replace(/[#\d\.]/g, '').trim()
+        if (advocate) advocates.push(advocate)
+      }
+    }
+  }
+  
+  return advocates
+}
+
+function extractSummary(content: string): string {
+  const lines = content.split('\n')
+  let summary = ''
+
+  // Try to find numbered points first (legal document style)
+  const numberedPoints = lines.filter(l => /^\d+\./.test(l))
+  if (numberedPoints.length > 0) {
+    return numberedPoints.join('\n')
+  }
+
+  // If no numbered points, try to extract a meaningful summary
+  // Look for paragraphs that might contain key information
+  const paragraphs = content.split('\n\n')
+  for (const para of paragraphs) {
+    // Skip very short paragraphs or those that look like headers
+    if (para.length < 50 || para.startsWith('#') || /^[0-9.]+$/.test(para)) continue
+    
+    // Skip paragraphs that are too long (likely not a summary)
+    if (para.length > 500) continue
+    
+    // Look for paragraphs that might contain summary-like content
+    if (
+      para.includes('summary') ||
+      para.includes('overview') ||
+      para.includes('conclusion') ||
+      para.includes('therefore') ||
+      para.toLowerCase().includes('this document') ||
+      para.toLowerCase().includes('the purpose')
+    ) {
+      summary = para.trim()
+      break
+    }
+  }
+
+  // If still no summary, take the first substantial paragraph
+  if (!summary) {
+    summary = paragraphs.find(p => 
+      p.length > 50 && 
+      p.length < 500 && 
+      !p.startsWith('#') && 
+      !/^[0-9.]+$/.test(p)
+    )?.trim() || ''
+  }
+
+  return summary
 }
 
 export async function extractDocumentInfo(url: string): Promise<ExtractedInfo> {
@@ -213,7 +329,7 @@ export async function extractDocumentInfo(url: string): Promise<ExtractedInfo> {
       
       attempts++
       if (attempts >= maxAttempts) {
-        throw new Error(`Document processing timed out after ${maxAttempts * pollInterval / 1000} seconds. The server might be experiencing high load.`)
+        throw new Error(`Document processing timed out after ${maxAttempts * pollInterval / 1000} seconds`)
       }
     } while (status === 'PROCESSING' || status === 'PENDING')
 
@@ -230,64 +346,27 @@ export async function extractDocumentInfo(url: string): Promise<ExtractedInfo> {
 
     console.log('Successfully retrieved content, length:', parsedContent.length)
 
-    // Extract information using regex patterns
+    // Extract information
     const extractedInfo: ExtractedInfo = {
-      caseNumber: extractCaseNumber(parsedContent),
+      title: extractTitle(parsedContent),
       date: extractDate(parsedContent),
       parties: extractParties(parsedContent),
       advocates: extractAdvocates(parsedContent),
-      summary: extractSummary(parsedContent)
+      summary: extractSummary(parsedContent),
+      content: parsedContent // Include full content for reference
     }
+
+    // Clean up the extracted info by removing empty fields
+    Object.keys(extractedInfo).forEach(key => {
+      const value = extractedInfo[key as keyof ExtractedInfo]
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        delete extractedInfo[key as keyof ExtractedInfo]
+      }
+    })
 
     return extractedInfo
   } catch (error) {
     console.error('Error parsing document:', error)
     throw error
   }
-}
-
-function extractCaseNumber(content: string): string {
-  const caseNumberMatch = content.match(/(?:FAT No\.|CAN)\s*([^\n]+)/)
-  return caseNumberMatch ? caseNumberMatch[1].trim() : ''
-}
-
-function extractDate(content: string): string {
-  const dateMatch = content.match(/\d{1,2}(?:st|nd|rd|th)?\s+\w+,?\s+\d{4}/)
-  return dateMatch ? dateMatch[0] : ''
-}
-
-function extractParties(content: string): string[] {
-  const parties: string[] = []
-  const lines = content.split('\n')
-  
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/vs\.|versus/i)) {
-      const prevLine = lines[i-1]?.replace(/[#\d\.]/g, '').trim()
-      const nextLine = lines[i+1]?.replace(/[#\d\.]/g, '').trim()
-      if (prevLine) parties.push(prevLine)
-      if (nextLine) parties.push(nextLine)
-    }
-  }
-  
-  return parties
-}
-
-function extractAdvocates(content: string): string[] {
-  const advocates: string[] = []
-  const lines = content.split('\n')
-  
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes('...for the')) {
-      const advocate = lines[i-1]?.replace(/[#\d\.]/g, '').trim()
-      if (advocate) advocates.push(advocate)
-    }
-  }
-  
-  return advocates
-}
-
-function extractSummary(content: string): string {
-  const lines = content.split('\n')
-  const summaryLines = lines.filter(l => /^\d+\./.test(l))
-  return summaryLines.join('\n')
 } 

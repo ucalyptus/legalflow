@@ -8,9 +8,9 @@ import { Toaster } from "sonner"
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'LegalFlow',
+  description: 'LegalFlow is a platform for legal professionals',
+  generator: 'LegalFlow',
 }
 
 export default function RootLayout({
