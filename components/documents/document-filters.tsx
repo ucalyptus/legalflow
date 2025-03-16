@@ -2,63 +2,91 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { DocStatus } from "@prisma/client"
 
 interface DocumentFiltersProps {
-  onStatusChange: (status: string) => void
-  onTypeChange: (type: string) => void
-  onSortChange: (sort: string) => void
+  statusFilter: string[]
+  setStatusFilter: (status: string[]) => void
+  sortBy: string
+  setSortBy: (sort: string) => void
 }
 
+const statusOptions = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "SUBMITTED", label: "Submitted" },
+  { value: "UNDER_REVIEW", label: "Under Review" },
+  { value: "APPROVED", label: "Approved" }
+]
+
+const sortOptions = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "alphabetical", label: "Alphabetical (A-Z)" }
+]
+
 export function DocumentFilters({
-  onStatusChange,
-  onTypeChange,
-  onSortChange,
+  statusFilter,
+  setStatusFilter,
+  sortBy,
+  setSortBy,
 }: DocumentFiltersProps) {
+  
+  const toggleStatus = (status: string) => {
+    setStatusFilter(prev => 
+      prev.includes(status) 
+        ? prev.filter(s => s !== status) 
+        : [...prev, status]
+    )
+  }
+  
   return (
-    <div className="flex items-center gap-4 pb-4">
-      <Select onValueChange={onStatusChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Filter by Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="draft">Draft</SelectItem>
-          <SelectItem value="under-review">Under Review</SelectItem>
-          <SelectItem value="approved">Approved</SelectItem>
-          <SelectItem value="submitted">Submitted</SelectItem>
-        </SelectContent>
-      </Select>
+    <>
+      {/* Status Filter */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-[180px] justify-between">
+            <span>{statusFilter.length ? `${statusFilter.length} selected` : "Filter by Status"}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50"><path d="m6 9 6 6 6-6"/></svg>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[180px]">
+          {statusOptions.map(option => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={statusFilter.includes(option.value)}
+              onCheckedChange={() => toggleStatus(option.value)}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Select onValueChange={onTypeChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Filter by Type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          <SelectItem value="contract">Contract</SelectItem>
-          <SelectItem value="pleading">Pleading</SelectItem>
-          <SelectItem value="agreement">Agreement</SelectItem>
-          <SelectItem value="filing">Filing</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select onValueChange={onSortChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Sort by" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="recent">Most Recent</SelectItem>
-          <SelectItem value="oldest">Oldest First</SelectItem>
-          <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-          <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
+      {/* Sort Options */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-[180px] justify-between">
+            <span>Sort by</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down h-4 w-4 opacity-50"><path d="m6 9 6 6 6-6"/></svg>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[180px]">
+          {sortOptions.map(option => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={sortBy === option.value}
+              onCheckedChange={() => setSortBy(option.value)}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 } 
