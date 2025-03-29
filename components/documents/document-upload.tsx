@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2, Upload, X } from "lucide-react"
+import type { OurFileRouter } from "@/app/api/uploadthing/core"
 
 interface DocumentUploadProps {
   isOpen: boolean
@@ -53,7 +54,7 @@ export function DocumentUpload({ isOpen, onClose, onUploadComplete }: DocumentUp
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6">
-            <UploadButton
+            <UploadButton<OurFileRouter, "documentUploader">
               endpoint="documentUploader"
               onUploadBegin={() => {
                 setIsUploading(true)

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { DocumentTags } from "@/app/types/documents";
 
 export async function GET() {
   try {
-    const result = await prisma.$queryRaw`SELECT * FROM document_tags`;
+    const result = await prisma.$queryRaw<DocumentTags[]>`SELECT * FROM document_tags`;
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching document tags:", error);
@@ -17,11 +18,11 @@ export async function POST(req: Request) {
     const { documentId, tags } = body;
 
     // Check if document already has tags
-    const existingTags = await prisma.$queryRaw`
+    const existingTags = await prisma.$queryRaw<DocumentTags[]>`
       SELECT * FROM document_tags WHERE document_id = ${documentId}
     `;
     
-    if (existingTags.length > 0) {
+    if (Array.isArray(existingTags) && existingTags.length > 0) {
       // Update existing tags
       await prisma.$executeRaw`
         UPDATE document_tags 

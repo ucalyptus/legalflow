@@ -1,8 +1,7 @@
 "use client"
 
-import React from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Layout } from '@/components/layout';
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,6 +21,8 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useRouter, useSearchParams } from "next/navigation"
+import { DocumentTags } from '@/app/types/documents'
+import { DocumentList } from '@/app/components/documents/document-list'
 
 interface Document {
   id: string
@@ -41,15 +42,7 @@ interface Document {
   tags?: string[]
 }
 
-interface DocumentTag {
-  id: number
-  document_id: string
-  tags: string[]
-  created_at: string
-  updated_at: string
-}
-
-export default function Documents() {
+function DocumentsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -137,7 +130,7 @@ export default function Documents() {
         setDocuments(docs)
         
         // Then load tags
-        const tagsData = await getDocumentTags() as DocumentTag[]
+        const tagsData = await getDocumentTags() as DocumentTags[]
         console.log('Fetched document tags:', tagsData.length)
         
         const tagsMap: Record<string, string[]> = {}
@@ -285,7 +278,7 @@ export default function Documents() {
       setDocuments(docs)
       
       // Also refresh tags
-      const tagsData = await getDocumentTags() as DocumentTag[]
+      const tagsData = await getDocumentTags() as DocumentTags[]
       console.log('Fetched document tags:', tagsData.length)
       
       const tagsMap: Record<string, string[]> = {}
@@ -559,58 +552,12 @@ export default function Documents() {
               )}
             </div>
           ) : (
-            filteredDocuments.map((doc) => (
-              <Card key={doc.id} className="p-4">
-                <div className="flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 cursor-pointer" 
-                         onClick={() => setSelectedDocument(doc)}>
-                      <FileText className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <h3 className="font-medium">{doc.title}</h3>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm text-gray-500">{doc.case?.title || 'No case'}</p>
-                          <span className="text-xs text-gray-400">•</span>
-                          <p className="text-sm text-gray-500">{formatFileSize(doc.size)}</p>
-                          <span className="text-xs text-gray-400">•</span>
-                          <p className="text-sm text-gray-500 capitalize">{doc.status.toLowerCase().replace('_', ' ')}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Share2 className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                          <Download className="w-4 h-4" />
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Tags section */}
-                  <div className="mt-3 ml-8">
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {(doc.tags || []).map(tag => (
-                        <Badge 
-                          key={tag}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleTagClick(tag)}
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                    <TagManager
-                      tags={doc.tags || []}
-                      onTagsChange={(newTags) => handleTagsChange(doc.id, newTags)}
-                    />
-                  </div>
-                </div>
-              </Card>
-            ))
+            <DocumentList
+              documents={filteredDocuments}
+              documentTags={documentTags}
+              onDocumentSelect={setSelectedDocument}
+              isLoading={isLoading}
+            />
           )}
         </div>
 
@@ -618,17 +565,33 @@ export default function Documents() {
           <DocumentUpload
             isOpen={isUploadOpen}
             onClose={() => setIsUploadOpen(false)}
-            onUploadComplete={refreshDocuments}
+            onUploadComplete={() => {
+              setLoadAttempted(false)
+              setIsUploadOpen(false)
+            }}
           />
         )}
 
         {selectedDocument && (
           <DocumentViewer
-            document={selectedDocument}
+            document={{
+              ...selectedDocument,
+              lastModified: selectedDocument.updatedAt.toISOString(),
+              status: selectedDocument.status.toLowerCase(),
+              caseTitle: selectedDocument.case?.title
+            }}
             onClose={() => setSelectedDocument(null)}
           />
         )}
       </div>
     </Layout>
+  );
+}
+
+export default function Documents() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DocumentsContent />
+    </Suspense>
   );
 } 

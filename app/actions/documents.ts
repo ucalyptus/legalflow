@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { DocumentTags } from "@/app/types/documents"
 
 export async function getDocuments() {
   try {
@@ -28,7 +29,7 @@ export async function getCases() {
 export async function getDocumentTags() {
   try {
     console.log('Server: Fetching document tags')
-    const result = await prisma.$queryRaw`SELECT * FROM document_tags`;
+    const result = await prisma.$queryRaw<DocumentTags[]>`SELECT * FROM document_tags`;
     console.log('Server: Found', Array.isArray(result) ? result.length : 0, 'document tags')
     return result;
   } catch (error) {
@@ -38,32 +39,42 @@ export async function getDocumentTags() {
 }
 
 export async function getDocumentTagsByDocumentId(documentId: string) {
-  const result = await prisma.$queryRaw`
-    SELECT * FROM document_tags WHERE document_id = ${documentId}
-  `;
-  return result[0]?.tags || [];
+  try {
+    const result = await prisma.$queryRaw<DocumentTags[]>`
+      SELECT * FROM document_tags WHERE document_id = ${documentId}
+    `;
+    return result[0]?.tags ?? [];
+  } catch (error) {
+    console.error('Server: Error fetching document tags by ID:', error)
+    return [];
+  }
 }
 
 export async function updateDocumentTags(documentId: string, tags: string[]) {
-  // Check if document already has tags
-  const existingTags = await prisma.$queryRaw`
-    SELECT * FROM document_tags WHERE document_id = ${documentId}
-  `;
-  
-  if (existingTags.length > 0) {
-    // Update existing tags
-    await prisma.$executeRaw`
-      UPDATE document_tags 
-      SET tags = ${tags}::text[], updated_at = NOW() 
-      WHERE document_id = ${documentId}
+  try {
+    // Check if document already has tags
+    const existingTags = await prisma.$queryRaw<DocumentTags[]>`
+      SELECT * FROM document_tags WHERE document_id = ${documentId}
     `;
-  } else {
-    // Insert new tags
-    await prisma.$executeRaw`
-      INSERT INTO document_tags (document_id, tags) 
-      VALUES (${documentId}, ${tags}::text[])
-    `;
+    
+    if (Array.isArray(existingTags) && existingTags.length > 0) {
+      // Update existing tags
+      await prisma.$executeRaw`
+        UPDATE document_tags 
+        SET tags = ${tags}::text[], updated_at = NOW() 
+        WHERE document_id = ${documentId}
+      `;
+    } else {
+      // Insert new tags
+      await prisma.$executeRaw`
+        INSERT INTO document_tags (document_id, tags) 
+        VALUES (${documentId}, ${tags}::text[])
+      `;
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Server: Error updating document tags:', error)
+    throw error;
   }
-  
-  return { success: true };
 } 

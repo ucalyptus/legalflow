@@ -37,6 +37,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getCases } from "@/app/actions/documents"
 
+// Map Prisma CaseStatus to UI status
+const mapCaseStatus = (status: string) => {
+  const statusMap: { [key: string]: "Ongoing" | "Settled" | "Under Review" | "Pending" } = {
+    'ONGOING': 'Ongoing',
+    'SETTLED': 'Settled',
+    'UNDER_REVIEW': 'Under Review',
+    'PENDING': 'Pending'
+  }
+  return statusMap[status] || 'Pending'
+}
+
 interface CaseItem {
   id: string
   title: string
@@ -59,7 +70,16 @@ export default function CasesPage() {
   useEffect(() => {
     async function loadCases() {
       const loadedCases = await getCases()
-      setCases(loadedCases)
+      // Map the loaded cases to match the CaseItem interface
+      const mappedCases: CaseItem[] = loadedCases.map(c => ({
+        ...c,
+        status: mapCaseStatus(c.status),
+        priority: c.priority.charAt(0) + c.priority.slice(1).toLowerCase() as "High" | "Medium" | "Low",
+        updatedAt: c.updatedAt.toISOString(),
+        filingDate: c.filingDate.toISOString(),
+        nextHearing: c.nextHearing?.toISOString()
+      }))
+      setCases(mappedCases)
     }
     loadCases()
   }, [])
@@ -91,7 +111,7 @@ export default function CasesPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">123</div>
+            <div className="text-2xl font-bold">{cases.length}</div>
             <p className="text-xs text-muted-foreground">
               +5 from last month
             </p>
@@ -103,7 +123,9 @@ export default function CasesPage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">45</div>
+            <div className="text-2xl font-bold">
+              {cases.filter(c => c.status === "Ongoing").length}
+            </div>
             <p className="text-xs text-muted-foreground">
               +2 new this week
             </p>
@@ -115,7 +137,9 @@ export default function CasesPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">15</div>
+            <div className="text-2xl font-bold">
+              {cases.filter(c => c.status === "Under Review").length}
+            </div>
             <p className="text-xs text-muted-foreground">
               3 require attention
             </p>
@@ -127,7 +151,9 @@ export default function CasesPage() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">78</div>
+            <div className="text-2xl font-bold">
+              {cases.filter(c => c.status === "Settled").length}
+            </div>
             <p className="text-xs text-muted-foreground">
               +12 this year
             </p>

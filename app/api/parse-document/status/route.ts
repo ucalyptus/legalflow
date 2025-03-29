@@ -65,7 +65,15 @@ async function getResults(jobId: string) {
 }
 
 function extractRelevantInfo(content: string) {
-  const info = {
+  interface DocumentInfo {
+    caseNumber: string;
+    date: string;
+    parties: string[];
+    advocates: string[];
+    summary: string;
+  }
+
+  const info: DocumentInfo = {
     caseNumber: '',
     date: '',
     parties: [],

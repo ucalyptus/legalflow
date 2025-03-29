@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { MultiDocumentViewer } from '@/components/documents/multi-document-viewer'
+import { MultiDocumentViewer } from './multi-document-viewer'
+import { Document } from '@/app/types/document'
 
 export function DocumentViewerContent({ documents }: { documents: Document[] }) {
   const [scale, setScale] = useState(1)

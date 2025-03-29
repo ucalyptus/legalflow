@@ -2,16 +2,7 @@
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { DocumentViewerContent } from "./document-viewer-content"
-
-interface Document {
-  id: string
-  title: string
-  url: string
-  type: string
-  status: string
-  caseTitle?: string
-  lastModified: string
-}
+import { Document } from "@/app/types/document"
 
 interface DocumentViewerProps {
   documents: Document[]

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,7 +25,7 @@ export function DocumentChat({ documents }: DocumentChatProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   // Add initial system message showing available documents
-  useState(() => {
+  useEffect(() => {
     const systemMessage = {
       role: 'assistant' as const,
       content: `I can help you with questions about the following documents:\n${documents.map((doc, i) => `${i + 1}. ${doc.title}`).join('\n')}`

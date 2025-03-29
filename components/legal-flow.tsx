@@ -104,7 +104,7 @@ export default function LegalFlow() {
         <span className="text-xl font-semibold">LegalFlow</span>
       </div>
       <nav className="space-y-1 p-3">
-      <NavItem icon={<Upload className="h-5 w-5" />} href="/dashboard">
+      <NavItem icon={<FileText className="h-5 w-5" />} href="/dashboard">
           Dashboard
         </NavItem>
         <NavItem icon={<Upload className="h-5 w-5" />} href="/documents">

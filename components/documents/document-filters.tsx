@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -37,11 +38,10 @@ export function DocumentFilters({
 }: DocumentFiltersProps) {
   
   const toggleStatus = (status: string) => {
-    setStatusFilter(prev => 
-      prev.includes(status) 
-        ? prev.filter(s => s !== status) 
-        : [...prev, status]
-    )
+    const newStatusFilter = statusFilter.includes(status)
+      ? statusFilter.filter(s => s !== status)
+      : [...statusFilter, status]
+    setStatusFilter(newStatusFilter)
   }
   
   return (
