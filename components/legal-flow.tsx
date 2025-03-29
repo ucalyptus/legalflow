@@ -104,20 +104,14 @@ export default function LegalFlow() {
         <span className="text-xl font-semibold">LegalFlow</span>
       </div>
       <nav className="space-y-1 p-3">
-        <NavItem icon={<LayoutDashboard className="h-5 w-5" />} href="/">
+      <NavItem icon={<Upload className="h-5 w-5" />} href="/dashboard">
           Dashboard
-        </NavItem>
-        <NavItem icon={<FileText className="h-5 w-5" />} href="/cases">
-          Cases
         </NavItem>
         <NavItem icon={<Upload className="h-5 w-5" />} href="/documents">
           Documents
         </NavItem>
-        <NavItem icon={<MessageSquareText className="h-5 w-5" />}>Ask AI</NavItem>
-        <NavItem icon={<Star className="h-5 w-5" />}>Filings</NavItem>
       </nav>
       <div className="mt-auto p-3">
-        <NavItem icon={<Settings className="h-5 w-5" />}>Settings</NavItem>
         <div className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2">
           <Avatar className="h-8 w-8">
             <div className="bg-purple-100" />
