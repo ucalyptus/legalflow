@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { FileText, User2, PenLine, Send, ChevronDown } from 'lucide-react';
 import Layout from '../components/layout';
+import { useRouter } from 'next/navigation';
 
 interface Section {
   id: string;
@@ -17,6 +18,7 @@ interface FormData {
   companyName?: string;
   contactPerson?: string;
   instructions?: string;
+  templateFile?: string;
 }
 
 export default function DashboardPage() {
@@ -25,6 +27,7 @@ export default function DashboardPage() {
   const [selectedAgreement, setSelectedAgreement] = useState("Shareholders' Agreement");
   const [selectedDraftType, setSelectedDraftType] = useState("Draft");
   const [formData, setFormData] = useState<FormData>({});
+  const router = useRouter();
 
   const [sections, setSections] = useState<Section[]>([
     {
@@ -111,11 +114,14 @@ export default function DashboardPage() {
 
   const agreements = [
     "Shareholders' Agreement",
-    "Partnership Agreement",
-    "Operating Agreement",
-    "Employment Agreement",
+    "Share Subscription Agreement",
+    "Board Resolution",
+    "Memorandum of Association",
+    "Articles of Association",
     "Non-Disclosure Agreement",
-    "Service Agreement"
+    "ROC Filling Forms",
+    "Writ Affidavit",
+    "Legal Notice"
   ];
 
   const draftTypes = [
@@ -125,13 +131,26 @@ export default function DashboardPage() {
     "Extract-Focus"
   ];
 
-  const handleDownload = () => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result?.toString().split(',')[1];
+      setFormData({ ...formData, templateFile: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async () => {
     const data = {
       type: selectedDraftType,
       agreement: selectedAgreement,
       ...formData
     };
 
+    // Download JSON
     const jsonString = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -142,6 +161,15 @@ export default function DashboardPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    // Store data in localStorage instead of URL params
+    localStorage.setItem('draftSettings', jsonString);
+    if (formData.templateFile) {
+      localStorage.setItem('templateText', formData.templateFile);
+    }
+
+    // Navigate to document viewer without query params
+    router.push('/document-viewer');
   };
 
   return (
@@ -209,11 +237,30 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                onClick={handleDownload}
+                onClick={handleSubmit}
                 className="hover:bg-gray-100 p-2 rounded-full transition-colors duration-200"
               >
                 <Send className="w-6 h-6 text-black" />
               </button>
+            </div>
+
+            {/* Template Upload Section */}
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Template Document</h3>
+              <input
+                type="file"
+                accept=".docx"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Upload a .docx template file to use as reference
+              </p>
             </div>
 
             {/* Add Section */}
@@ -239,6 +286,16 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="mt-6">
+              <button
+                onClick={handleSubmit}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                Generate Document
+              </button>
             </div>
           </div>
         </div>
