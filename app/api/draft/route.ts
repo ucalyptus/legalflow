@@ -56,12 +56,38 @@ export async function POST(req: Request) {
 
     try {
       // Call Gemini API
+      // const response = await fetch(
+      //   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${process.env.GEMINI_API_KEY}`,
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //     },
+      //     body: JSON.stringify({
+      //       contents: [
+      //         {
+      //           role: "user",
+      //           parts: [{ text: prompt }]
+      //         }
+      //       ],
+      //       generationConfig: {
+      //         temperature: 0.7,
+      //         topK: 40,
+      //         topP: 0.95,
+      //         maxOutputTokens: 2048,
+      //         stopSequences: []
+      //       }
+      //     })
+      //   }
+      // );
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${process.env.GEMINI_API_KEY}`,
+        `https://gateway.helicone.ai/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${process.env.GOOGLE_GENERATIVE_API_KEY}`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+            'Helicone-Target-URL': 'https://generativelanguage.googleapis.com'
           },
           body: JSON.stringify({
             contents: [

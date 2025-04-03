@@ -1,0 +1,66 @@
+openapi: 3.0.0
+info:
+  title: LegalFlow Document Generation API
+  version: 1.0.0
+  description: API for generating legal documents using AI
+
+servers:
+  - url: https://5d12-142-181-28-87.ngrok-free.app
+    description: Development server
+
+paths:
+  /api/draft:
+    post:
+      summary: Generate a legal document
+      description: Generates a legal document based on provided settings and template
+      operationId: generateDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                settings:
+                  type: object
+                  properties:
+                    agreement:
+                      type: string
+                      description: Type of agreement to generate
+                      example: "Shareholders Agreement"
+                    companyName:
+                      type: string
+                      description: Name of the company
+                      example: "Example Corp"
+                    contactPerson:
+                      type: string
+                      description: Name of the contact person
+                      example: "John Doe"
+                    instructions:
+                      type: string
+                      description: Additional instructions for document generation
+                      example: "Include standard shareholder rights and obligations"
+                    templateFile:
+                      type: string
+                      format: binary
+                      description: Optional DOCX template file
+                templateText:
+                  type: string
+                  description: Optional template text for reference
+              required:
+                - settings
+      responses:
+        '200':
+          description: Successfully generated document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                    description: Generated document content in HTML format
+        '400':
+          description: Bad request - invalid input
+        '500':
+          description: Server error 

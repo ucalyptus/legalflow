@@ -28,6 +28,8 @@ export default function DashboardPage() {
   const [selectedDraftType, setSelectedDraftType] = useState("Draft");
   const [formData, setFormData] = useState<FormData>({});
   const router = useRouter();
+  const [selectedExtractions, setSelectedExtractions] = useState<string[]>([]);
+  const extractionTypes = ["Dates and Events"];
 
   const [sections, setSections] = useState<Section[]>([
     {
@@ -126,10 +128,149 @@ export default function DashboardPage() {
 
   const draftTypes = [
     "Draft",
+    "Extract",
     "Analyze",
-    "Extract-Compare",
-    "Extract-Focus"
   ];
+
+  const renderLayoutBasedOnType = () => {
+    switch (selectedDraftType) {
+      case 'Draft':
+        return (
+          <>
+            <div className="relative mb-6">
+              <button
+                onClick={() => setAgreementDropdownOpen(!agreementDropdownOpen)}
+                className="w-full bg-gray-100 px-4 py-2 rounded-lg flex items-center justify-between hover:bg-gray-200 transition-colors duration-200"
+              >
+                <span className="text-gray-800 font-medium">{selectedAgreement}</span>
+                <ChevronDown className="w-4 h-4 text-gray-600" />
+              </button>
+              {agreementDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl border shadow-lg z-20">
+                  <div className="py-2">
+                    {agreements.map((agreement) => (
+                      <button
+                        key={agreement}
+                        onClick={() => {
+                          setSelectedAgreement(agreement);
+                          setAgreementDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors duration-200"
+                      >
+                        {agreement}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Reference Document</h3>
+              <input
+                type="file"
+                accept=".docx"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <textarea
+                className="w-full h-32 p-2 border rounded-md"
+                placeholder="Enter any special instructions or requirements..."
+                onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+              />
+            </div>
+          </>
+        );
+
+      case 'Extract':
+        return (
+          <>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Select Items to Extract</h3>
+              <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
+                {extractionTypes.map((type) => (
+                  <div key={type} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={type}
+                      checked={selectedExtractions.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedExtractions([...selectedExtractions, type]);
+                        } else {
+                          setSelectedExtractions(selectedExtractions.filter(item => item !== type));
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label htmlFor={type} className="ml-2 text-gray-700">
+                      {type}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Upload Document</h3>
+              <input
+                type="file"
+                accept=".docx,.pdf"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <textarea
+                className="w-full h-32 p-2 border rounded-md"
+                placeholder="Enter any specific details about the dates or events you want to extract..."
+                onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+              />
+            </div>
+          </>
+        );
+
+      case 'Analyze':
+        return (
+          <>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Upload Document</h3>
+              <input
+                type="file"
+                accept=".docx,.pdf"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+            </div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <textarea
+                className="w-full h-32 p-2 border rounded-md"
+                placeholder="Enter what aspects of the document you want to analyze..."
+                onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+              />
+            </div>
+          </>
+        );
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -147,6 +288,7 @@ export default function DashboardPage() {
     const data = {
       type: selectedDraftType,
       agreement: selectedAgreement,
+      extractions: selectedDraftType === 'Extract' ? selectedExtractions : undefined,
       ...formData
     };
 
@@ -179,62 +321,32 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <button
-                    onClick={() => setDraftDropdownOpen(!draftDropdownOpen)}
-                    className="bg-gray-100 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors duration-200"
-                  >
-                    <span className="text-gray-600">{selectedDraftType}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-600" />
-                  </button>
-                  {draftDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl border shadow-lg z-20">
-                      <div className="py-2">
-                        {draftTypes.map((type) => (
-                          <button
-                            key={type}
-                            onClick={() => {
-                              setSelectedDraftType(type);
-                              setDraftDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors duration-200"
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
+              <div className="relative">
+                <button
+                  onClick={() => setDraftDropdownOpen(!draftDropdownOpen)}
+                  className="bg-gray-100 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors duration-200"
+                >
+                  <span className="text-gray-600">{selectedDraftType}</span>
+                  <ChevronDown className="w-4 h-4 text-gray-600" />
+                </button>
+                {draftDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl border shadow-lg z-20">
+                    <div className="py-2">
+                      {draftTypes.map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setSelectedDraftType(type);
+                            setDraftDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors duration-200"
+                        >
+                          {type}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
-                <span className="text-gray-400">a</span>
-                <div className="relative">
-                  <button
-                    onClick={() => setAgreementDropdownOpen(!agreementDropdownOpen)}
-                    className="bg-gray-100 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-gray-200 transition-colors duration-200"
-                  >
-                    <span className="text-gray-800 font-medium">{selectedAgreement}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-600" />
-                  </button>
-                  {agreementDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl border shadow-lg z-20">
-                      <div className="py-2">
-                        {agreements.map((agreement) => (
-                          <button
-                            key={agreement}
-                            onClick={() => {
-                              setSelectedAgreement(agreement);
-                              setAgreementDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors duration-200"
-                          >
-                            {agreement}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleSubmit}
@@ -244,49 +356,8 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Template Upload Section */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Template Document</h3>
-              <input
-                type="file"
-                accept=".docx"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Upload a .docx template file to use as reference
-              </p>
-            </div>
-
-            {/* Add Section */}
-            <div className="mb-6">
-              <h2 className="text-lg font-medium text-gray-700 mb-4">Add:</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {sections.map(section => (
-                  <div key={section.id} className="relative">
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      className="w-full bg-white border rounded-xl p-4 hover:border-blue-500 transition-colors duration-200 shadow-sm"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {section.icon}
-                        <span className="text-gray-700">{section.title}</span>
-                      </div>
-                    </button>
-                    {section.isOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border shadow-lg z-10">
-                        {section.content}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Dynamic Layout based on selected type */}
+            {renderLayoutBasedOnType()}
 
             {/* Submit Button */}
             <div className="mt-6">
@@ -294,7 +365,8 @@ export default function DashboardPage() {
                 onClick={handleSubmit}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
               >
-                Generate Document
+                {selectedDraftType === 'Draft' ? 'Generate Document' : 
+                 selectedDraftType === 'Extract' ? 'Extract Information' : 'Analyze Document'}
               </button>
             </div>
           </div>
