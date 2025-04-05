@@ -19,17 +19,56 @@ interface FormData {
   contactPerson?: string;
   instructions?: string;
   templateFile?: string;
+  selectedModel?: string;
+  apiType?: 'google' | 'openrouter';
 }
 
 export default function DashboardPage() {
   const [agreementDropdownOpen, setAgreementDropdownOpen] = useState(false);
   const [draftDropdownOpen, setDraftDropdownOpen] = useState(false);
-  const [selectedAgreement, setSelectedAgreement] = useState("Shareholders' Agreement");
+  const [selectedAgreement, setSelectedAgreement] = useState("Writ Affidavit");
   const [selectedDraftType, setSelectedDraftType] = useState("Draft");
   const [formData, setFormData] = useState<FormData>({});
   const router = useRouter();
   const [selectedExtractions, setSelectedExtractions] = useState<string[]>([]);
   const extractionTypes = ["Dates and Events"];
+  const models = [
+    {
+      id: "gemini-pro-google",
+      name: "Gemini Pro (Direct)",
+      model: "gemini-pro",
+      apiType: "google" as const,
+      description: "Direct Google Gemini API"
+    },
+    {
+      id: "gemini-pro-openrouter",
+      name: "Gemini-2.5-Pro (OpenRouter)",
+      model: "google/gemini-2.5-pro-exp-03-25:free",
+      apiType: "openrouter" as const,
+      description: "Via OpenRouter API"
+    },
+    {
+      id: "moonlight",
+      name: "Moonlight-16B",
+      model: "moonshotai/moonlight-16b-a3b-instruct:free",
+      apiType: "openrouter" as const,
+      description: "Via OpenRouter API"
+    },
+    {
+      id: "deepseek-v3-0324",
+      name: "DeepSeek-V3-0324",
+      model: "deepseek/deepseek-chat-v3-0324:free",
+      apiType: "openrouter" as const,
+      description: "Via OpenRouter API"
+    },
+    {
+      id: "qwq-32b",
+      name: "QWQ-32B",
+      model: "qwen/qwq-32b:free",
+      apiType: "openrouter" as const,
+      description: "Via OpenRouter API"
+    }
+  ];
 
   const [sections, setSections] = useState<Section[]>([
     {
@@ -115,6 +154,7 @@ export default function DashboardPage() {
   };
 
   const agreements = [
+    "Writ Affidavit",
     "Shareholders' Agreement",
     "Share Subscription Agreement",
     "Board Resolution",
@@ -122,7 +162,6 @@ export default function DashboardPage() {
     "Articles of Association",
     "Non-Disclosure Agreement",
     "ROC Filling Forms",
-    "Writ Affidavit",
     "Legal Notice"
   ];
 
@@ -132,11 +171,42 @@ export default function DashboardPage() {
     "Analyze",
   ];
 
+  const renderModelSelection = () => (
+    <div className="mb-6">
+      <h3 className="text-lg font-medium mb-2">Select Model</h3>
+      <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
+        {models.map((model) => (
+          <div key={model.id} className="flex items-center group">
+            <input
+              type="radio"
+              id={model.id}
+              name="model-selection"
+              value={model.model}
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                selectedModel: e.target.value,
+                apiType: model.apiType
+              })}
+              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+            />
+            <div className="ml-2">
+              <label htmlFor={model.id} className="text-gray-700 font-medium">
+                {model.name}
+              </label>
+              <p className="text-gray-500 text-sm">{model.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderLayoutBasedOnType = () => {
     switch (selectedDraftType) {
       case 'Draft':
         return (
           <>
+            {renderModelSelection()}
             <div className="relative mb-6">
               <button
                 onClick={() => setAgreementDropdownOpen(!agreementDropdownOpen)}
@@ -192,6 +262,7 @@ export default function DashboardPage() {
       case 'Extract':
         return (
           <>
+            {renderModelSelection()}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Select Items to Extract</h3>
               <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
@@ -245,6 +316,7 @@ export default function DashboardPage() {
       case 'Analyze':
         return (
           <>
+            {renderModelSelection()}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Upload Document</h3>
               <input
@@ -285,10 +357,17 @@ export default function DashboardPage() {
   };
 
   const handleSubmit = async () => {
+    if (!formData.selectedModel || !formData.apiType) {
+      alert("Please select a model to proceed");
+      return;
+    }
+    
     const data = {
       type: selectedDraftType,
       agreement: selectedAgreement,
       extractions: selectedDraftType === 'Extract' ? selectedExtractions : undefined,
+      model: formData.selectedModel,
+      apiType: formData.apiType,
       ...formData
     };
 

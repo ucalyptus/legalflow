@@ -13,8 +13,82 @@ const md = new MarkdownIt({
 });
 
 const execAsync = promisify(exec);
-const MODEL_ID = "gemini-2.0-flash";
-const GENERATE_CONTENT_API = "generateContent";
+
+async function callGeminiDirectAPI(prompt: string) {
+  const response = await fetch(
+    `https://gateway.helicone.ai/v1beta/models/gemini-pro:generateContent?key=${process.env.GOOGLE_GENERATIVE_API_KEY}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
+        'Helicone-Target-URL': 'https://generativelanguage.googleapis.com'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+          stopSequences: []
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text;
+}
+
+async function callOpenRouterAPI(prompt: string, model: string) {
+  console.log('Calling OpenRouter API with model:', model);
+  
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'X-Title': 'LegalFlow'
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
+  });
+
+  const data = await response.json();
+  console.log('OpenRouter API Response:', JSON.stringify(data, null, 2));
+
+  if (!response.ok) {
+    console.error('OpenRouter API Error:', data);
+    throw new Error(`OpenRouter API request failed: ${response.status} ${response.statusText} - ${data.error?.message || 'Unknown error'}`);
+  }
+
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    console.error('No content in OpenRouter response:', data);
+    throw new Error('No content in OpenRouter response');
+  }
+
+  return content;
+}
 
 export async function POST(req: Request) {
   try {
@@ -29,15 +103,11 @@ export async function POST(req: Request) {
       const outputPath = path.join(tempDir, 'output.txt');
       
       await fs.writeFile(inputPath, Buffer.from(settings.templateFile, 'base64'));
-      
       await execAsync(`pandoc "${inputPath}" -f docx -t plain -o "${outputPath}"`);
       context = await fs.readFile(outputPath, 'utf-8');
-      
-      // Clean up temp files
       await fs.rm(tempDir, { recursive: true });
     }
 
-    // Prepare the prompt for the model
     const prompt = `
       You are a legal document drafting assistant. Using the following template as reference:
       
@@ -55,88 +125,31 @@ export async function POST(req: Request) {
     `;
 
     try {
-      // Call Gemini API
-      // const response = await fetch(
-      //   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${process.env.GEMINI_API_KEY}`,
-      //   {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //     },
-      //     body: JSON.stringify({
-      //       contents: [
-      //         {
-      //           role: "user",
-      //           parts: [{ text: prompt }]
-      //         }
-      //       ],
-      //       generationConfig: {
-      //         temperature: 0.7,
-      //         topK: 40,
-      //         topP: 0.95,
-      //         maxOutputTokens: 2048,
-      //         stopSequences: []
-      //       }
-      //     })
-      //   }
-      // );
-      const response = await fetch(
-        `https://gateway.helicone.ai/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${process.env.GOOGLE_GENERATIVE_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Helicone-Auth': `Bearer ${process.env.HELICONE_API_KEY}`,
-            'Helicone-Target-URL': 'https://generativelanguage.googleapis.com'
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: prompt }]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 2048,
-              stopSequences: []
-            }
-          })
-        }
-      );
-
-      console.log('Gemini API Response Status:', response.status);
-      const data = await response.json();
-      console.log('Gemini API Response Data:', JSON.stringify(data, null, 2));
-
-      if (!response.ok) {
-        throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
+      let generatedContent;
+      
+      if (settings.apiType === 'google') {
+        generatedContent = await callGeminiDirectAPI(prompt);
+      } else if (settings.apiType === 'openrouter') {
+        generatedContent = await callOpenRouterAPI(prompt, settings.model);
+      } else {
+        throw new Error('Invalid API type specified');
       }
-
-      // Extract content from the response
-      const generatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log('Raw Generated Content:', generatedContent);
 
       if (!generatedContent) {
-        console.error('No content in Gemini response:', data);
-        throw new Error('No content generated by Gemini API');
+        throw new Error('No content generated by the API');
       }
 
-      // Clean the content to ensure it's plain text
       const cleanContent = generatedContent
-        .replace(/<[^>]*>/g, '') // Remove any HTML/XML tags
+        .replace(/<[^>]*>/g, '')
         .trim();
 
-      // Convert markdown to HTML for better presentation
       const htmlContent = md.render(cleanContent);
 
       console.log('Final HTML Content:', htmlContent);
       return NextResponse.json({ content: htmlContent });
-    } catch (geminiError) {
-      console.error('Gemini API Error:', geminiError);
-      throw new Error(geminiError instanceof Error ? geminiError.message : 'Gemini API request failed');
+    } catch (apiError) {
+      console.error('API Error:', apiError);
+      throw new Error(apiError instanceof Error ? apiError.message : 'API request failed');
     }
   } catch (error) {
     console.error('Error in draft API:', error);
