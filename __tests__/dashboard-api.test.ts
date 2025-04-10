@@ -1,8 +1,24 @@
 import fs from 'fs';
 import path from 'path';
 
-// Test document content
-const testDocContent = fs.readFileSync(path.join(process.cwd(), 'doctext.txt'), 'utf-8');
+// Mock document content for testing
+const testDocContent = `
+LEGAL DOCUMENT - TEST
+
+This is a test document for LegalFlow.
+Date: March 21, 2024
+
+PARTIES:
+1. Test Company Ltd.
+2. John Doe
+
+RECITALS:
+1. This is a test document.
+2. It contains sample legal text.
+3. For testing purposes only.
+
+IN WITNESS WHEREOF, the parties have executed this agreement.
+`;
 
 // Mock fetch globally
 global.fetch = jest.fn() as jest.Mock;

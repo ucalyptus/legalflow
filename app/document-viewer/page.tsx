@@ -6,9 +6,24 @@ import { useRouter } from 'next/navigation';
 
 export default function DocumentViewer() {
   const [document, setDocument] = useState<string>('');
+  const [documentPreview, setDocumentPreview] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const getFirstHundredWords = (text: string): string => {
+    try {
+      // Remove any non-printable characters and excessive whitespace
+      const cleanText = text.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, ' ')
+                           .replace(/\s+/g, ' ')
+                           .trim();
+      const words = cleanText.split(/\s+/);
+      return words.slice(0, 100).join(' ') + (words.length > 100 ? '...' : '');
+    } catch (error) {
+      console.error('Error processing text preview:', error);
+      return 'Error: Unable to generate preview. The document may be in an unsupported format.';
+    }
+  };
 
   const fetchDraft = async () => {
     setLoading(true);
@@ -17,12 +32,30 @@ export default function DocumentViewer() {
     try {
       const settings = localStorage.getItem('draftSettings');
       const templateText = localStorage.getItem('templateText');
+      const mimeType = localStorage.getItem('documentMimeType') || '';
 
       if (!settings) {
         throw new Error('No settings found');
       }
 
       const parsedSettings = JSON.parse(settings);
+      
+      // Set document preview
+      if (templateText) {
+        try {
+          // First try to decode as base64
+          const decodedText = Buffer.from(templateText, 'base64').toString('utf-8');
+          // Check if the decoded text looks like binary data
+          if (decodedText.includes('[Content_Types].xml') || /[\x00-\x08\x0B-\x0C\x0E-\x1F]/.test(decodedText)) {
+            setDocumentPreview('Processing document for extraction...');
+          } else {
+            setDocumentPreview(getFirstHundredWords(decodedText));
+          }
+        } catch (error) {
+          console.error('Error decoding document:', error);
+          setDocumentPreview('Processing document for extraction...');
+        }
+      }
       
       if (parsedSettings.type === 'Extract') {
         // Handle extraction
@@ -33,6 +66,7 @@ export default function DocumentViewer() {
           },
           body: JSON.stringify({
             documentText: templateText,
+            mimeType: mimeType,
             model: parsedSettings.model,
             apiType: parsedSettings.apiType,
             extractionTypes: parsedSettings.extractions
@@ -139,53 +173,28 @@ export default function DocumentViewer() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <div className="text-red-600 mb-4">{error}</div>
-              <div className="space-x-4">
-                <button
-                  onClick={handleRetry}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={handleBackToDashboard}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Back to Dashboard
-                </button>
+      <div className="container mx-auto px-4 py-8">
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+          </div>
+        ) : (
+          <>
+            {documentPreview && (
+              <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-medium mb-2">Document Preview</h3>
+                <p className="text-gray-700">{documentPreview}</p>
               </div>
-            </div>
-          ) : document ? (
-            <div>
-              <div className="flex justify-end mb-4">
-                <button
-                  onClick={handleBackToDashboard}
-                  className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                  </svg>
-                  Back to Dashboard
-                </button>
-              </div>
-              <div className="prose max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: document }} />
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-600">
-              No content was generated. Please try again.
-            </div>
-          )}
-        </div>
+            )}
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: document }}></div>
+          </>
+        )}
       </div>
     </Layout>
   );

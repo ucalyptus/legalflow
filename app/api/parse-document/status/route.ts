@@ -1,4 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 
 async function checkJobStatus(jobId: string) {
   const apiKey = process.env.LLAMA_CLOUD_API_KEY
@@ -106,12 +108,11 @@ function extractRelevantInfo(content: string) {
   return info
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const jobId = searchParams.get('id')
+    const jobId = request.nextUrl.searchParams.get('id')
 
-    console.log('Received status check request with params:', Object.fromEntries(searchParams.entries()))
+    console.log('Received status check request with params:', Object.fromEntries(request.nextUrl.searchParams.entries()))
 
     if (!jobId) {
       return NextResponse.json({ error: 'Job ID is required' }, { status: 400 })

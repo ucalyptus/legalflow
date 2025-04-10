@@ -14,13 +14,40 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    domains: ['legalflow.vercel.app', 'uploadthing.com', 'utfs.io'],
+    unoptimized: false,
   },
   experimental: {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  compress: true,
+  poweredByHeader: false,
+  reactStrictMode: true,
+  swcMinify: true,
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
+      },
+    ];
+  },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/.identity/:path*',
+          destination: '/api/no-auth'
+        }
+      ]
+    }
+  }
 }
 
 mergeConfig(nextConfig, userConfig)

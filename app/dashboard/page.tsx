@@ -20,7 +20,7 @@ interface FormData {
   instructions?: string;
   templateFile?: string;
   selectedModel?: string;
-  apiType?: 'google' | 'openrouter';
+  apiType?: 'google' | 'openrouter' | 'openai';
 }
 
 export default function DashboardPage() {
@@ -39,6 +39,13 @@ export default function DashboardPage() {
       model: "gemini-pro",
       apiType: "google" as const,
       description: "Direct Google Gemini API"
+    },
+    {
+      id: "gpt-4-openai",
+      name: "GPT-4 (Direct)",
+      model: "gpt-4o",
+      apiType: "openai" as const,
+      description: "Direct OpenAI GPT-4 API"
     },
     {
       id: "gemini-pro-openrouter",
