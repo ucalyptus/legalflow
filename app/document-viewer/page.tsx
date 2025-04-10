@@ -11,53 +11,67 @@ export default function DocumentViewer() {
   const router = useRouter();
 
   const fetchDraft = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Get data from localStorage
-      const settingsString = localStorage.getItem('draftSettings');
+      const settings = localStorage.getItem('draftSettings');
       const templateText = localStorage.getItem('templateText');
-      
-      console.log('Settings from localStorage:', settingsString);
-      
-      if (!settingsString) {
-        throw new Error('No settings found. Please return to the dashboard and try again.');
+
+      if (!settings) {
+        throw new Error('No settings found');
       }
 
-      const settings = JSON.parse(settingsString);
+      const parsedSettings = JSON.parse(settings);
       
-      console.log('Sending request to /api/draft with settings:', settings);
-      
-      const response = await fetch('/api/draft', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          settings,
-          templateText,
-        }),
-      });
+      if (parsedSettings.type === 'Extract') {
+        // Handle extraction
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            documentText: templateText,
+            model: parsedSettings.model,
+            apiType: parsedSettings.apiType,
+            extractionTypes: parsedSettings.extractions
+          }),
+        });
 
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
+        if (!response.ok) {
+          throw new Error('Failed to extract information');
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate draft');
+        const data = await response.json();
+        
+        if (data.status === 'error') {
+          throw new Error(data.error || 'Extraction failed');
+        }
+
+        // Format the extracted data into HTML
+        const formattedContent = formatExtractionResults(data.data);
+        setDocument(formattedContent);
+      } else {
+        // Handle regular draft generation
+        const response = await fetch('/api/draft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            settings: parsedSettings,
+            templateText
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate document');
+        }
+
+        const data = await response.json();
+        setDocument(data.content);
       }
-      
-      if (!data.content) {
-        throw new Error('No content received from the API');
-      }
-
-      setDocument(data.content);
-      console.log('Document content set:', data.content);
-
-      // Clean up localStorage after successful fetch
-      localStorage.removeItem('draftSettings');
-      localStorage.removeItem('templateText');
     } catch (error) {
       console.error('Error in fetchDraft:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -65,6 +79,50 @@ export default function DocumentViewer() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to format extraction results into HTML
+  const formatExtractionResults = (data: any) => {
+    const { dateEventTable } = data;
+    
+    // Sort dates by status
+    const completedDates = dateEventTable.filter((item: any) => item.status === 'completed');
+    const pendingDates = dateEventTable.filter((item: any) => item.status === 'pending');
+    const scheduledDates = dateEventTable.filter((item: any) => item.status === 'scheduled');
+    
+    return `
+      <div class="space-y-8">
+        <div class="bg-blue-50 p-6 rounded-lg">
+          <h2 class="text-xl font-semibold mb-4">Timeline Overview</h2>
+          <div class="space-y-4">
+            <div>
+              <h3 class="font-medium text-blue-800">Completed Events</h3>
+              <ul class="list-disc pl-5 mt-2">
+                ${completedDates.map((item: any) => `
+                  <li><strong>${item.date}</strong>: ${item.event}</li>
+                `).join('')}
+              </ul>
+            </div>
+            <div>
+              <h3 class="font-medium text-blue-800">Pending Events</h3>
+              <ul class="list-disc pl-5 mt-2">
+                ${pendingDates.map((item: any) => `
+                  <li><strong>${item.date}</strong>: ${item.event}</li>
+                `).join('')}
+              </ul>
+            </div>
+            <div>
+              <h3 class="font-medium text-blue-800">Scheduled Events</h3>
+              <ul class="list-disc pl-5 mt-2">
+                ${scheduledDates.map((item: any) => `
+                  <li><strong>${item.date}</strong>: ${item.event}</li>
+                `).join('')}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   };
 
   useEffect(() => {

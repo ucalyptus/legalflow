@@ -371,25 +371,13 @@ export default function DashboardPage() {
       ...formData
     };
 
-    // Download JSON
-    const jsonString = JSON.stringify(data, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'agreement-settings.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    // Store data in localStorage instead of URL params
-    localStorage.setItem('draftSettings', jsonString);
+    // Store data in localStorage
+    localStorage.setItem('draftSettings', JSON.stringify(data));
     if (formData.templateFile) {
       localStorage.setItem('templateText', formData.templateFile);
     }
 
-    // Navigate to document viewer without query params
+    // Navigate to document viewer
     router.push('/document-viewer');
   };
 
