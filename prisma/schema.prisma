@@ -1,40 +1,45 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = []
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Case {
-  id          String      @id @default(uuid())
+  id          String     @id @default(uuid())
   title       String
   clientName  String
-  status      CaseStatus  @default(PENDING)
+  status      CaseStatus @default(PENDING)
   nextHearing DateTime?
-  updatedAt   DateTime    @updatedAt
-  priority    Priority    @default(MEDIUM)
+  updatedAt   DateTime   @updatedAt
+  priority    Priority   @default(MEDIUM)
   caseType    String
   assignedTo  String[]
-  filingDate  DateTime    @default(now())
+  filingDate  DateTime   @default(now())
   documents   Document[]
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime   @default(now())
 }
 
 model Document {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   title     String
-  url       String
-  type      String
-  size      Int
-  status    DocStatus @default(DRAFT)
-  caseId    String?
-  case      Case?    @relation(fields: [caseId], references: [id])
+  content   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  userId    String
+  tags      String[]
+  status    String   @default("active")
+  case      Case?    @relation(fields: [caseId], references: [id])
+  caseId    String?
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum CaseStatus {
@@ -55,4 +60,4 @@ enum DocStatus {
   SUBMITTED
   UNDER_REVIEW
   APPROVED
-} 
+}

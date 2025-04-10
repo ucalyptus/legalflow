@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node -e \"process.stdout.write('\\033c')\" && next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
@@ -18,7 +18,7 @@
     "@google/generative-ai": "^0.24.0",
     "@hookform/resolvers": "^3.9.1",
     "@mistralai/mistralai": "^1.5.1",
-    "@prisma/client": "^6.5.0",
+    "@prisma/client": "^6.6.0",
     "@radix-ui/react-accordion": "^1.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.4",
     "@radix-ui/react-aspect-ratio": "^1.1.1",
@@ -66,7 +66,7 @@
     "next-themes": "^0.4.4",
     "openai": "^4.91.0",
     "pdf-parse": "^1.1.1",
-    "prisma": "^6.4.1",
+    "prisma": "^6.6.0",
     "react": "^18",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18",
@@ -79,7 +79,9 @@
     "tailwindcss-animate": "^1.0.7",
     "uploadthing": "^7.5.2",
     "vaul": "^0.9.6",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "glob": "^10.3.10",
+    "lru-cache": "^10.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
@@ -89,7 +91,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/jest": "^29.5.14",
-    "@types/node": "^22",
+    "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "babel-jest": "^29.7.0",
@@ -100,6 +102,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.3.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "prisma": "^6.6.0"
   }
 }
