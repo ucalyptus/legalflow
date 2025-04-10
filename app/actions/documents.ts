@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { DocumentTags } from "@/app/types/documents"
+import { DocumentTags } from "@/types/documents"
 
 export async function getDocuments() {
   try {

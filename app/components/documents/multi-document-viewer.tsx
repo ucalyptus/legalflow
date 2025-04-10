@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DocumentChat } from '@/app/components/DocumentChat'
-import { Document } from '@/app/types/document'
+import { Document } from '@/types/document'
 
 interface MultiDocumentViewerProps {
   documents: Document[]

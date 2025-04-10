@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useRouter, useSearchParams } from "next/navigation"
-import { DocumentTags } from '@/app/types/documents'
+import { DocumentTags } from '@/types/documents'
 import { DocumentList } from '@/app/components/documents/document-list'
 
 interface Document {
