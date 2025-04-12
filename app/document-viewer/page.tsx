@@ -1,200 +1,270 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
+import { ArrowLeft, Download, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+interface DocumentData {
+  content?: string;
+  dateEventTable?: Array<{
+    date: string;
+    event: string;
+    status: string;
+    citation?: string;
+  }>;
+  type?: string;
+}
+
 export default function DocumentViewer() {
-  const [document, setDocument] = useState<string>('');
-  const [documentPreview, setDocumentPreview] = useState<string>('');
+  const [documentData, setDocumentData] = useState<DocumentData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const getFirstHundredWords = (text: string): string => {
+  useEffect(() => {
     try {
-      // Remove any non-printable characters and excessive whitespace
-      const cleanText = text.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, ' ')
-                           .replace(/\s+/g, ' ')
-                           .trim();
-      const words = cleanText.split(/\s+/);
-      return words.slice(0, 100).join(' ') + (words.length > 100 ? '...' : '');
-    } catch (error) {
-      console.error('Error processing text preview:', error);
-      return 'Error: Unable to generate preview. The document may be in an unsupported format.';
-    }
-  };
-
-  const fetchDraft = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const settings = localStorage.getItem('draftSettings');
-      const templateText = localStorage.getItem('templateText');
-      const mimeType = localStorage.getItem('documentMimeType') || '';
-
-      if (!settings) {
-        throw new Error('No settings found');
-      }
-
-      const parsedSettings = JSON.parse(settings);
+      const extractionResults = localStorage.getItem('extractionResults');
+      const draftSettings = localStorage.getItem('draftSettings');
       
-      // Set document preview
-      if (templateText) {
-        try {
-          // First try to decode as base64
-          const decodedText = Buffer.from(templateText, 'base64').toString('utf-8');
-          // Check if the decoded text looks like binary data
-          if (decodedText.includes('[Content_Types].xml') || /[\x00-\x08\x0B-\x0C\x0E-\x1F]/.test(decodedText)) {
-            setDocumentPreview('Processing document for extraction...');
-          } else {
-            setDocumentPreview(getFirstHundredWords(decodedText));
-          }
-        } catch (error) {
-          console.error('Error decoding document:', error);
-          setDocumentPreview('Processing document for extraction...');
-        }
-      }
-      
-      if (parsedSettings.type === 'Extract') {
-        // Handle extraction
-        const response = await fetch('/api/extract', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            documentText: templateText,
-            mimeType: mimeType,
-            model: parsedSettings.model,
-            apiType: parsedSettings.apiType,
-            extractionTypes: parsedSettings.extractions
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to extract information');
-        }
-
-        const data = await response.json();
-        
-        if (data.status === 'error') {
-          throw new Error(data.error || 'Extraction failed');
-        }
-
-        // Format the extracted data into HTML
-        const formattedContent = formatExtractionResults(data.data);
-        setDocument(formattedContent);
-      } else {
-        // Handle regular draft generation
-        const response = await fetch('/api/draft', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            settings: parsedSettings,
-            templateText
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to generate document');
-        }
-
-        const data = await response.json();
-        setDocument(data.content);
+      if (extractionResults) {
+        // Handle extraction results
+        const data = JSON.parse(extractionResults);
+        console.log('Extraction results:', data); // Debug log
+        setDocumentData(data);
+        // Clean up storage
+        localStorage.removeItem('extractionResults');
+      } else if (draftSettings) {
+        // Handle draft settings
+        const settings = JSON.parse(draftSettings);
+        setDocumentData(settings);
+        localStorage.removeItem('draftSettings');
       }
     } catch (error) {
-      console.error('Error in fetchDraft:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-      setDocument('');
+      console.error('Error loading document data:', error);
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const formatDateEventTableToText = (data: DocumentData): string => {
+    if (!data.dateEventTable || data.dateEventTable.length === 0) {
+      return 'No events found in the document.';
+    }
+
+    // Group events by status
+    const eventsByStatus = data.dateEventTable.reduce((acc, event) => {
+      const status = event.status || 'unknown';
+      if (!acc[status]) {
+        acc[status] = [];
+      }
+      acc[status].push(event);
+      return acc;
+    }, {} as Record<string, typeof data.dateEventTable>);
+
+    // Format the text
+    let text = 'EXTRACTED EVENTS AND DATES\n\n';
+    
+    for (const [status, events] of Object.entries(eventsByStatus)) {
+      text += `${status.toUpperCase()} EVENTS:\n`;
+      text += '----------------------------------------\n';
+      events.forEach(event => {
+        text += `Date: ${event.date}\n`;
+        text += `Event: ${event.event}\n`;
+        if (event.citation) {
+          text += `Citation: ${event.citation}\n`;
+        }
+        text += '----------------------------------------\n';
+      });
+      text += '\n';
+    }
+
+    return text;
   };
 
-  // Function to format extraction results into HTML
-  const formatExtractionResults = (data: any) => {
-    const { dateEventTable } = data;
-    
-    // Sort dates by status
-    const completedDates = dateEventTable.filter((item: any) => item.status === 'completed');
-    const pendingDates = dateEventTable.filter((item: any) => item.status === 'pending');
-    const scheduledDates = dateEventTable.filter((item: any) => item.status === 'scheduled');
-    
-    return `
-      <div class="space-y-8">
-        <div class="bg-blue-50 p-6 rounded-lg">
-          <h2 class="text-xl font-semibold mb-4">Timeline Overview</h2>
-          <div class="space-y-4">
-            <div>
-              <h3 class="font-medium text-blue-800">Completed Events</h3>
-              <ul class="list-disc pl-5 mt-2">
-                ${completedDates.map((item: any) => `
-                  <li><strong>${item.date}</strong>: ${item.event}</li>
-                `).join('')}
-              </ul>
-            </div>
-            <div>
-              <h3 class="font-medium text-blue-800">Pending Events</h3>
-              <ul class="list-disc pl-5 mt-2">
-                ${pendingDates.map((item: any) => `
-                  <li><strong>${item.date}</strong>: ${item.event}</li>
-                `).join('')}
-              </ul>
-            </div>
-            <div>
-              <h3 class="font-medium text-blue-800">Scheduled Events</h3>
-              <ul class="list-disc pl-5 mt-2">
-                ${scheduledDates.map((item: any) => `
-                  <li><strong>${item.date}</strong>: ${item.event}</li>
-                `).join('')}
-              </ul>
-            </div>
+  const handleCopy = async () => {
+    try {
+      let textToCopy = '';
+      
+      if (documentData?.dateEventTable) {
+        textToCopy = formatDateEventTableToText(documentData);
+      } else {
+        textToCopy = documentData?.content || '';
+      }
+
+      await navigator.clipboard.writeText(textToCopy);
+      
+      // Show a temporary success message
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      messageDiv.textContent = 'Copied to clipboard!';
+      document.body.appendChild(messageDiv);
+      
+      // Remove the message after 2 seconds
+      setTimeout(() => {
+        document.body.removeChild(messageDiv);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      // Show error message
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      messageDiv.textContent = 'Failed to copy to clipboard';
+      document.body.appendChild(messageDiv);
+      
+      setTimeout(() => {
+        document.body.removeChild(messageDiv);
+      }, 2000);
+    }
+  };
+
+  const handleDownload = () => {
+    try {
+      let content = '';
+      let filename = '';
+      
+      if (documentData?.dateEventTable) {
+        content = formatDateEventTableToText(documentData);
+        filename = 'extracted_events.txt';
+      } else {
+        content = documentData?.content || '';
+        filename = 'document.txt';
+      }
+
+      const element = document.createElement('a');
+      const file = new Blob([content], {type: 'text/plain;charset=utf-8'});
+      element.href = URL.createObjectURL(file);
+      element.download = filename;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      URL.revokeObjectURL(element.href); // Clean up the URL object
+
+      // Show success message
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      messageDiv.textContent = 'Download started!';
+      document.body.appendChild(messageDiv);
+      
+      setTimeout(() => {
+        document.body.removeChild(messageDiv);
+      }, 2000);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Show error message
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+      messageDiv.textContent = 'Download failed';
+      document.body.appendChild(messageDiv);
+      
+      setTimeout(() => {
+        document.body.removeChild(messageDiv);
+      }, 2000);
+    }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      );
+    }
+
+    if (!documentData) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-600">No document data found.</p>
+        </div>
+      );
+    }
+
+    if (documentData.dateEventTable && documentData.dateEventTable.length > 0) {
+      return (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold mb-4">Extracted Events</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Citation</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {documentData.dateEventTable.map((item, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.date}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{item.event}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${item.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                          item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-gray-100 text-gray-800'}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-md break-words">{item.citation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // For regular document content (Draft or Analysis)
+    const content = documentData.content || '';
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="prose max-w-none">
+            {/* Split content by newlines and preserve formatting */}
+            {content.split('\n').map((line, index) => (
+              <p key={index} className={line.trim() === '' ? 'my-4' : ''}>
+                {line}
+              </p>
+            ))}
           </div>
         </div>
       </div>
-    `;
-  };
-
-  useEffect(() => {
-    fetchDraft();
-  }, []);
-
-  const handleRetry = () => {
-    fetchDraft();
-  };
-
-  const handleBackToDashboard = () => {
-    router.push('/dashboard');
+    );
   };
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-            <p className="text-red-700">{error}</p>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-6 flex items-center justify-between">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Back
+            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={handleCopy}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy
+              </button>
+              <button
+                onClick={handleDownload}
+                className="flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </button>
+            </div>
           </div>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          </div>
-        ) : (
-          <>
-            {documentPreview && (
-              <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Document Preview</h3>
-                <p className="text-gray-700">{documentPreview}</p>
-              </div>
-            )}
-            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: document }}></div>
-          </>
-        )}
+          {renderContent()}
+        </div>
       </div>
     </Layout>
   );

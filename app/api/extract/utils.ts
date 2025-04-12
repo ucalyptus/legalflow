@@ -1,6 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Buffer } from 'buffer';
+import pdfParse from 'pdf-parse';
+import * as mammoth from 'mammoth';
 import { OpenAI } from 'openai';
-import { convertToPlainText } from './document-converter';
 
 export const EXTRACTION_PROMPT = `Extract ONLY meaningful legal dates and events from the document into a table format in JSON. Focus on actual legal events, court dates, deadlines, and significant milestones. Ignore document metadata.
 
@@ -15,193 +16,183 @@ Required JSON structure:
       "citation": "Exact text from document showing the date and event"
     }
   ]
-}
+}`;
 
-Rules:
-1. ALL dates must be in YYYY-MM-DD format
-2. If a date is mentioned without a year, use context to determine the year or default to current year
-3. For each date, provide:
-   - A detailed event description that captures the legal significance
-   - The page number where the date appears in the document
-   - A direct quote or citation from the source text showing the date and event
-4. Status must be one of:
-   - completed: Past events that have already occurred
-   - pending: Current/ongoing events or those requiring immediate attention
-   - scheduled: Future events and upcoming deadlines
-5. ONLY include dates that represent actual legal events, such as:
-   - Court dates and hearings
-   - Filing deadlines
-   - Contract execution dates
-   - Important meetings or negotiations
-   - Legal notice periods
-   - Compliance deadlines
-6. DO NOT include:
-   - Document metadata (creation date, modification date, etc.)
-   - Generic dates without legal significance
-   - System or technical dates
-7. If no meaningful legal dates are found, return a single entry with:
-   - date: current date
-   - event: "No significant legal dates were found in the document"
-   - status: "completed"
-   - page: null
-   - citation: null`;
-
-export async function decodeDocumentText(text: string, mimeType?: string): Promise<string> {
-  if (!text) return text;
+export async function convertToPlainText(buffer: Buffer, mimeType: string): Promise<string> {
+  console.log('Converting document to plain text, mime type:', mimeType);
   
   try {
-    const buffer = Buffer.from(text, 'base64');
-    
-    // First try to convert if it's a binary format
-    try {
-      const plainText = await convertToPlainText(buffer, mimeType || '');
-      if (plainText) {
-        return plainText.replace(/\s+/g, ' ').trim();
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const result = await mammoth.extractRawText({ buffer });
+      if (!result || !result.value) {
+        throw new Error('DOCX extraction produced no text');
       }
-    } catch (error) {
-      console.log('Binary conversion failed, trying as plain text:', error);
+      console.log('DOCX conversion successful, text length:', result.value.length);
+      return result.value;
+    } 
+    
+    if (mimeType === 'application/pdf') {
+      const data = await pdfParse(buffer);
+      if (!data || !data.text) {
+        throw new Error('PDF extraction produced no text');
+      }
+      console.log('PDF conversion successful, text length:', data.text.length);
+      return data.text;
     }
 
-    // If conversion fails or it's already plain text, try the original decoding
-    const decoded = buffer.toString('utf-8');
-    
-    // Clean up the text
-    return decoded.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, ' ')
-                 .replace(/\s+/g, ' ')
-                 .trim();
+    throw new Error(`Unsupported file type: ${mimeType}`);
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to decode document: ${error.message}`);
-    }
-    throw new Error('Failed to decode document: Unknown error');
+    console.error('Document conversion error:', error);
+    throw new Error(`Failed to convert document: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
-export async function callGeminiAPI(documentText: string) {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash',
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 2000
-    }
-  });
-
-  try {
-    const result = await model.generateContent({
-      contents: [{
-        role: 'user',
-        parts: [{
-          text: `You are a legal document analyzer. Extract dates and events from this document and format them as specified. Be thorough and don't miss any dates.\n\n${EXTRACTION_PROMPT}\n\nDocument text:\n${documentText}`
-        }]
-      }]
-    });
-
-    const response = result.response;
-    const text = response.text();
-    
-    try {
-      const formattedText = text.trim().replace(/^```json\n|\n```$/g, '');
-      const parsedResponse = JSON.parse(formattedText);
-      
-      if (!validateExtractionResponse(parsedResponse)) {
-        throw new Error('Invalid response structure from Gemini API. Expected dateEventTable array with date, event, and status fields.');
-      }
-      
-      if (parsedResponse.dateEventTable.length === 0) {
-        const today = new Date().toISOString().split('T')[0];
-        parsedResponse.dateEventTable.push({
-          date: today,
-          event: "No significant legal dates were found in the document",
-          status: "completed"
-        });
-      }
-      
-      return parsedResponse;
-    } catch (parseError) {
-      throw new Error('Failed to parse Gemini response as JSON');
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to extract information using Gemini API: ${error.message}`);
-    }
-    throw new Error('Failed to extract information using Gemini API: Unknown error');
-  }
-}
-
-export async function callOpenRouterAPI(documentText: string, model: string) {
+export async function callOpenAIAPI(documentText: string, model: string) {
   const openai = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY || '',
-    baseURL: 'https://openrouter.ai/api/v1',
-    defaultHeaders: {
-      'HTTP-Referer': process.env.NEXT_PUBLIC_HOST || 'http://localhost:3000',
-      'X-Title': 'LegalFlow'
-    }
+    apiKey: process.env.OPENAI_API_KEY || '',
   });
 
-  const systemPrompt = `You are a legal document analyzer. Your task is to thoroughly extract ALL dates and events from the provided document. Be comprehensive and don't miss any dates. Format the response exactly as specified.`;
+  // Verify we're working with decoded text
+  if (/^[A-Za-z0-9+/=]+$/.test(documentText.replace(/\s/g, ''))) {
+    throw new Error('Document text appears to be base64 encoded. Please decode before calling API.');
+  }
+
+  console.log('\nFirst 500 chars of document text:', documentText.slice(0, 500));
+  console.log('\nDocument text length:', documentText.length);
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: `${EXTRACTION_PROMPT}\n\nDocument text:\n${documentText}`
+    // Ensure we're using a valid model name and fallback to GPT-3.5 if rate limited
+    let validModel = model === 'gpt-4o' ? 'gpt-4' : model;
+    console.log('Using OpenAI model:', validModel);
+    
+    // Split document into chunks of roughly 2000 characters
+    const chunkSize = 2000;
+    const chunks = [];
+    for (let i = 0; i < documentText.length; i += chunkSize) {
+      chunks.push(documentText.slice(i, i + chunkSize));
+    }
+
+    console.log(`Split document into ${chunks.length} chunks`);
+
+    // Process each chunk with retry logic
+    const allResults = [];
+    for (const chunk of chunks) {
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          const completion = await openai.chat.completions.create({
+            model: validModel,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a legal document analyzer specializing in extracting dates and events from legal documents. Return ONLY valid JSON in the specified format. Do not include any other text or explanation. If no dates or events are found, return an empty dateEventTable array.'
+              },
+              {
+                role: 'user',
+                content: `${EXTRACTION_PROMPT}\n\nDocument text:\n${chunk}`
+              }
+            ],
+            temperature: 0.1,
+            max_tokens: 2000
+          });
+
+          const message = completion.choices[0]?.message;
+          if (!message || typeof message.content !== 'string') {
+            throw new Error('Invalid response format from OpenAI API');
+          }
+
+          console.log('Raw response from chunk:', message.content);
+          
+          try {
+            // Ensure the response is valid JSON and matches our expected format
+            const parsedResponse = JSON.parse(message.content);
+            if (!parsedResponse || typeof parsedResponse !== 'object' || !Array.isArray(parsedResponse.dateEventTable)) {
+              console.error('Response does not match expected format:', message.content);
+              throw new Error('Response does not match expected format');
+            }
+            if (parsedResponse.dateEventTable) {
+              allResults.push(...parsedResponse.dateEventTable);
+            }
+            break; // Success, exit retry loop
+          } catch (parseError) {
+            console.error('Failed to parse chunk response:', parseError);
+            console.error('Raw content that failed to parse:', message.content);
+            throw parseError; // Re-throw to trigger retry
+          }
+        } catch (error) {
+          retryCount++;
+          
+          // If it's a rate limit error and we're using GPT-4, fallback to GPT-3.5-turbo
+          if (error && typeof error === 'object' && 'code' in error && error.code === 'rate_limit_exceeded' && validModel.includes('gpt-4')) {
+            console.log('Rate limit hit for GPT-4, falling back to GPT-3.5-turbo');
+            validModel = 'gpt-3.5-turbo';
+            continue;
+          }
+          
+          // If we've exhausted retries, throw the error
+          if (retryCount === maxRetries) {
+            throw error;
+          }
+          
+          // Wait before retrying (exponential backoff)
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-      ],
-      temperature: 0.1,
-      max_tokens: 2000
-    });
-
-    if (!completion || !completion.choices || completion.choices.length === 0) {
-      throw new Error('Received empty response from OpenRouter API');
+      }
     }
 
-    const message = completion.choices[0]?.message;
-    if (!message || typeof message.content !== 'string') {
-      throw new Error('Invalid response format from OpenRouter API');
-    }
+    // Combine all results and remove duplicates
+    const uniqueResults = allResults.filter((event, index, self) =>
+      index === self.findIndex((e) => e.date === event.date && e.event === event.event)
+    );
 
-    const response = message.content;
-    const cleanedResponse = response.replace(/```json\n|\n```|```/g, '').trim();
-    const parsedResponse = JSON.parse(cleanedResponse);
-    
-    if (!validateExtractionResponse(parsedResponse)) {
-      throw new Error('Invalid response structure from OpenRouter API. Expected dateEventTable array with date, event, and status fields.');
-    }
-    
-    if (parsedResponse.dateEventTable.length === 0) {
-      const today = new Date().toISOString().split('T')[0];
-      parsedResponse.dateEventTable.push({
-        date: today,
-        event: "No significant legal dates were found in the document",
-        status: "completed"
-      });
-    }
-    
-    return parsedResponse;
+    return {
+      dateEventTable: uniqueResults
+    };
+
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to extract information using OpenRouter API: ${error.message}`);
-    }
-    throw new Error('Failed to extract information using OpenRouter API: Unknown error');
+    console.error('OpenAI API error:', error);
+    // Return empty results instead of throwing
+    return {
+      dateEventTable: []
+    };
   }
 }
 
-export function validateExtractionResponse(response: any): boolean {
-  if (!response || typeof response !== 'object') return false;
-  if (!Array.isArray(response.dateEventTable)) return false;
-  
-  for (const entry of response.dateEventTable) {
-    if (!entry.date || !entry.event || !entry.status) return false;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return false;
-    if (!['completed', 'pending', 'scheduled'].includes(entry.status)) return false;
+export async function extractDatesAndEvents(documentText: string, model: string) {
+  try {
+    // Verify we have valid input
+    if (!documentText || typeof documentText !== 'string') {
+      throw new Error('Invalid document text provided');
+    }
+
+    if (!model) {
+      throw new Error('Model must be specified');
+    }
+
+    // Decode base64 if needed
+    let decodedText = documentText;
+    if (/^[A-Za-z0-9+/=]+$/.test(documentText.replace(/\s/g, ''))) {
+      try {
+        decodedText = Buffer.from(documentText, 'base64').toString('utf-8');
+      } catch (decodeError) {
+        throw new Error('Failed to decode base64 text');
+      }
+    }
+
+    // Call OpenAI API to extract dates and events
+    const result = await callOpenAIAPI(decodedText, model);
+
+    // Validate the response format
+    if (!result || !Array.isArray(result.dateEventTable)) {
+      throw new Error('Invalid response format from extraction');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Error extracting dates and events:', error);
+    throw error;
   }
-  
-  return true;
 } 

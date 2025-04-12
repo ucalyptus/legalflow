@@ -1,9 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, User2, PenLine, Send, ChevronDown } from 'lucide-react';
 import Layout from '../components/layout';
 import { useRouter } from 'next/navigation';
+
+// Type declaration for File System Access API
+declare global {
+  interface Window {
+    showOpenFilePicker(options?: {
+      multiple?: boolean;
+      types?: Array<{
+        description: string;
+        accept: Record<string, string[]>;
+      }>;
+      startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
+    }): Promise<FileSystemFileHandle[]>;
+  }
+}
+
+interface FileSystemFileHandle {
+  getFile(): Promise<File>;
+}
 
 interface Section {
   id: string;
@@ -20,7 +38,9 @@ interface FormData {
   instructions?: string;
   templateFile?: string;
   selectedModel?: string;
-  apiType?: 'google' | 'openrouter' | 'openai';
+  mimeType?: string;
+  document?: string;
+  documentMimeType?: string;
 }
 
 export default function DashboardPage() {
@@ -28,54 +48,26 @@ export default function DashboardPage() {
   const [draftDropdownOpen, setDraftDropdownOpen] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState("Writ Affidavit");
   const [selectedDraftType, setSelectedDraftType] = useState("Draft");
-  const [formData, setFormData] = useState<FormData>({});
+  const [formData, setFormData] = useState<FormData>({
+    selectedModel: 'gpt-4o',
+    companyName: '',
+    contactPerson: '',
+    instructions: 'Please draft a detailed affidavit covering the following points:\n1. Clear statement of facts\n2. Personal knowledge verification\n3. Purpose of the affidavit\n4. Supporting evidence or documents if any\n5. Proper notarization details'
+  });
+  const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const [selectedExtractions, setSelectedExtractions] = useState<string[]>([]);
-  const extractionTypes = ["Dates and Events"];
-  const models = [
-    {
-      id: "gemini-pro-google",
-      name: "Gemini Pro (Direct)",
-      model: "gemini-pro",
-      apiType: "google" as const,
-      description: "Direct Google Gemini API"
-    },
-    {
-      id: "gpt-4-openai",
-      name: "GPT-4 (Direct)",
-      model: "gpt-4o",
-      apiType: "openai" as const,
-      description: "Direct OpenAI GPT-4 API"
-    },
-    {
-      id: "gemini-pro-openrouter",
-      name: "Gemini-2.5-Pro (OpenRouter)",
-      model: "google/gemini-2.5-pro-exp-03-25:free",
-      apiType: "openrouter" as const,
-      description: "Via OpenRouter API"
-    },
-    {
-      id: "moonlight",
-      name: "Moonlight-16B",
-      model: "moonshotai/moonlight-16b-a3b-instruct:free",
-      apiType: "openrouter" as const,
-      description: "Via OpenRouter API"
-    },
-    {
-      id: "deepseek-v3-0324",
-      name: "DeepSeek-V3-0324",
-      model: "deepseek/deepseek-chat-v3-0324:free",
-      apiType: "openrouter" as const,
-      description: "Via OpenRouter API"
-    },
-    {
-      id: "qwq-32b",
-      name: "QWQ-32B",
-      model: "qwen/qwq-32b:free",
-      apiType: "openrouter" as const,
-      description: "Via OpenRouter API"
-    }
-  ];
+  const extractionTypes = ['Dates and Events'];
+  const [selectedExtractions, setSelectedExtractions] = useState(extractionTypes);
+
+  // Loading state texts
+  const loadingStates = {
+    PREPARING: 'Converting document to text...',
+    PROCESSING: 'Extracting information with GPT-4...',
+    FORMATTING: 'Processing extracted information...',
+    SAVING: 'Preparing results...'
+  };
 
   const [sections, setSections] = useState<Section[]>([
     {
@@ -178,42 +170,11 @@ export default function DashboardPage() {
     "Analyze",
   ];
 
-  const renderModelSelection = () => (
-    <div className="mb-6">
-      <h3 className="text-lg font-medium mb-2">Select Model</h3>
-      <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
-        {models.map((model) => (
-          <div key={model.id} className="flex items-center group">
-            <input
-              type="radio"
-              id={model.id}
-              name="model-selection"
-              value={model.model}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                selectedModel: e.target.value,
-                apiType: model.apiType
-              })}
-              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-            />
-            <div className="ml-2">
-              <label htmlFor={model.id} className="text-gray-700 font-medium">
-                {model.name}
-              </label>
-              <p className="text-gray-500 text-sm">{model.description}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   const renderLayoutBasedOnType = () => {
     switch (selectedDraftType) {
       case 'Draft':
         return (
           <>
-            {renderModelSelection()}
             <div className="relative mb-6">
               <button
                 onClick={() => setAgreementDropdownOpen(!agreementDropdownOpen)}
@@ -256,10 +217,10 @@ export default function DashboardPage() {
               />
             </div>
             <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <h3 className="text-lg font-medium mb-2">Custom Instructions (Optional)</h3>
               <textarea
                 className="w-full h-32 p-2 border rounded-md"
-                placeholder="Enter any special instructions or requirements..."
+                placeholder="Enter any special instructions or requirements... (optional)"
                 onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
               />
             </div>
@@ -269,7 +230,6 @@ export default function DashboardPage() {
       case 'Extract':
         return (
           <>
-            {renderModelSelection()}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Select Items to Extract</h3>
               <div className="space-y-2 p-4 bg-gray-50 rounded-lg">
@@ -310,10 +270,10 @@ export default function DashboardPage() {
               />
             </div>
             <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <h3 className="text-lg font-medium mb-2">Custom Instructions (Optional)</h3>
               <textarea
                 className="w-full h-32 p-2 border rounded-md"
-                placeholder="Enter any specific details about the dates or events you want to extract..."
+                placeholder="Enter any specific details about the dates or events you want to extract... (optional)"
                 onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
               />
             </div>
@@ -323,7 +283,6 @@ export default function DashboardPage() {
       case 'Analyze':
         return (
           <>
-            {renderModelSelection()}
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-2">Upload Document</h3>
               <input
@@ -339,10 +298,10 @@ export default function DashboardPage() {
               />
             </div>
             <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Custom Instructions</h3>
+              <h3 className="text-lg font-medium mb-2">Custom Instructions (Optional)</h3>
               <textarea
                 className="w-full h-32 p-2 border rounded-md"
-                placeholder="Enter what aspects of the document you want to analyze..."
+                placeholder="Enter what aspects of the document you want to analyze... (optional)"
                 onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
               />
             </div>
@@ -356,37 +315,188 @@ export default function DashboardPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       const base64 = e.target?.result?.toString().split(',')[1];
-      setFormData({ ...formData, templateFile: base64 });
+      setFormData({ 
+        ...formData, 
+        templateFile: base64,
+        mimeType: file.type // Store the MIME type
+      });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async () => {
-    if (!formData.selectedModel || !formData.apiType) {
-      alert("Please select a model to proceed");
-      return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!formData.templateFile && !formData.document) {
+        alert("Please upload a document first");
+        return;
+      }
+
+      setLoadingText(loadingStates.PREPARING);
+
+      if (selectedDraftType === 'Extract') {
+        // First show document conversion state
+        setLoadingText(loadingStates.PREPARING);
+        
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            documentText: formData.templateFile || formData.document,
+            mimeType: formData.mimeType || formData.documentMimeType,
+            model: formData.selectedModel?.replace('o', ''),
+            instructions: formData.instructions || ''
+          }),
+        });
+
+        // After 2 seconds (typical conversion time), show processing state
+        setTimeout(() => {
+          setLoadingText(loadingStates.PROCESSING);
+        }, 2000);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to extract information');
+        }
+
+        setLoadingText(loadingStates.FORMATTING);
+        const data = await response.json();
+        console.log('Extraction API response:', data);
+        
+        try {
+          setLoadingText(loadingStates.SAVING);
+          localStorage.setItem('extractionResults', JSON.stringify({
+            dateEventTable: data.dateEventTable || [],
+            type: 'Extract'
+          }));
+          router.push('/document-viewer');
+        } catch (storageError) {
+          console.error('Error storing results:', storageError);
+          throw new Error('Failed to store extraction results');
+        }
+      } else if (selectedDraftType === 'Draft') {
+        setLoadingText(loadingStates.PROCESSING);
+        
+        // Call draft endpoint directly
+        const response = await fetch('/api/draft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            template: selectedAgreement,
+            model: formData.selectedModel?.replace('o', ''),
+            companyName: formData.companyName || '',
+            contactPerson: formData.contactPerson || '',
+            instructions: formData.instructions || '',
+            referenceDoc: formData.templateFile || formData.document || ''
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate document');
+        }
+
+        setLoadingText(loadingStates.FORMATTING);
+        const data = await response.json();
+        console.log('Draft API response:', data);
+        
+        try {
+          setLoadingText(loadingStates.SAVING);
+          localStorage.setItem('draftSettings', JSON.stringify({
+            content: data.content,
+            type: 'Draft'
+          }));
+          router.push('/document-viewer');
+        } catch (storageError) {
+          console.error('Error storing draft:', storageError);
+          throw new Error('Failed to store draft');
+        }
+      } else {
+        // For Analyze type
+        const data = {
+          type: selectedDraftType,
+          model: formData.selectedModel,
+          templateFile: formData.templateFile || formData.document,
+          mimeType: formData.mimeType || formData.documentMimeType,
+          instructions: formData.instructions || ''
+        };
+
+        try {
+          localStorage.setItem('draftSettings', JSON.stringify(data));
+          router.push('/document-viewer');
+        } catch (storageError) {
+          console.error('Error storing analysis settings:', storageError);
+          throw new Error('Failed to store analysis settings');
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+      setLoadingText('');
     }
-    
-    const data = {
-      type: selectedDraftType,
-      agreement: selectedAgreement,
-      extractions: selectedDraftType === 'Extract' ? selectedExtractions : undefined,
-      model: formData.selectedModel,
-      apiType: formData.apiType,
-      ...formData
+  };
+
+  // Pre-select document on mount
+  useEffect(() => {
+    const loadDocument = async () => {
+      try {
+        // Get the file handle with proper starting directory
+        const [fileHandle] = await window.showOpenFilePicker({
+          multiple: false,
+          types: [
+            {
+              description: 'Word Documents',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                'application/msword': ['.doc']
+              }
+            },
+            {
+              description: 'PDF Documents',
+              accept: {
+                'application/pdf': ['.pdf']
+              }
+            }
+          ],
+          startIn: 'documents'  // Start in user's Documents folder
+        });
+
+        const file = await fileHandle.getFile();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          const base64String = e.target?.result as string;
+          setFormData(prev => ({
+            ...prev,
+            document: base64String.split(',')[1],
+            documentMimeType: file.type
+          }));
+        };
+
+        reader.readAsDataURL(file);
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error loading document:', error.message);
+        } else {
+          console.error('Error loading document:', error);
+        }
+        // Don't show error to user since they might have just cancelled the picker
+      }
     };
 
-    // Store data in localStorage
-    localStorage.setItem('draftSettings', JSON.stringify(data));
-    if (formData.templateFile) {
-      localStorage.setItem('templateText', formData.templateFile);
-    }
-
-    // Navigate to document viewer
-    router.push('/document-viewer');
-  };
+    loadDocument();
+  }, []);
 
   return (
     <Layout>
@@ -424,23 +534,47 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={handleSubmit}
-                className="hover:bg-gray-100 p-2 rounded-full transition-colors duration-200"
+                disabled={loading}
+                className={`hover:bg-gray-100 p-2 rounded-full transition-colors duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Send className="w-6 h-6 text-black" />
               </button>
             </div>
 
+            {/* Loading Overlay */}
+            {loading && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-800">{loadingText}</p>
+                    <p className="text-sm text-gray-500 mt-2">This may take a few moments...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Dynamic Layout based on selected type */}
             {renderLayoutBasedOnType()}
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600">{error}</p>
+              </div>
+            )}
 
             {/* Submit Button */}
             <div className="mt-6">
               <button
                 onClick={handleSubmit}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                disabled={loading}
+                className={`w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 
+                  ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {selectedDraftType === 'Draft' ? 'Generate Document' : 
-                 selectedDraftType === 'Extract' ? 'Extract Information' : 'Analyze Document'}
+                {loading ? loadingText : 
+                  selectedDraftType === 'Draft' ? 'Generate Document' : 
+                  selectedDraftType === 'Extract' ? 'Extract Information' : 'Analyze Document'}
               </button>
             </div>
           </div>
