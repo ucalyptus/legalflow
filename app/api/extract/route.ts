@@ -1,21 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { convertToPlainText, callOpenAIAPI, extractDatesAndEvents } from './utils';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  console.log('Received POST request to /api/extract');
   try {
-    const { documentText, mimeType, model } = await req.json();
+    const body = await req.json();
+    console.log('Request body:', { ...body, documentText: '[REDACTED]' });
+    
+    const { documentText, mimeType, model } = body;
     
     if (!documentText || !mimeType) {
-      return new Response(JSON.stringify({ error: 'Document text and MIME type must be provided' }), {
-        status: 400,
-      });
+      console.log('Missing required fields');
+      return NextResponse.json(
+        { error: 'Document text and MIME type must be provided' },
+        { status: 400 }
+      );
     }
 
     // Validate model
     if (!model) {
-      return new Response(JSON.stringify({ error: 'Model must be specified' }), {
-        status: 400,
-      });
+      console.log('Missing model field');
+      return NextResponse.json(
+        { error: 'Model must be specified' },
+        { status: 400 }
+      );
     }
 
     let plainText: string;
@@ -30,18 +38,14 @@ export async function POST(req: Request) {
       plainText = await convertToPlainText(buffer, mimeType);
     }
 
-    // Extract dates and events from plain text
+    console.log('Processing document with model:', model);
     const result = await extractDatesAndEvents(plainText, model);
+    console.log('Successfully processed document');
     
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error processing request:', error);
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : 'Unknown error',
       details: error instanceof Error ? error.stack : undefined
