@@ -3,6 +3,14 @@ import pdfParse from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import { OpenAI } from 'openai';
 
+// PDF parse options to avoid test file dependencies
+const PDF_PARSE_OPTIONS = {
+  max: 0, // no limit on pages
+  version: 'default', // use default PDF.js version
+  useSystemFonts: false, // don't use system fonts
+  verbosity: 0 // minimal logging
+};
+
 export const EXTRACTION_PROMPT = `Extract ONLY meaningful legal dates and events from the document into a table format in JSON. Focus on actual legal events, court dates, deadlines, and significant milestones. Ignore document metadata.
 
 Required JSON structure:
@@ -32,7 +40,7 @@ export async function convertToPlainText(buffer: Buffer, mimeType: string): Prom
     } 
     
     if (mimeType === 'application/pdf') {
-      const data = await pdfParse(buffer);
+      const data = await pdfParse(buffer, PDF_PARSE_OPTIONS);
       if (!data || !data.text) {
         throw new Error('PDF extraction produced no text');
       }
