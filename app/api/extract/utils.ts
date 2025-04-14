@@ -68,6 +68,8 @@ export async function convertToPlainText(buffer: Buffer, mimeType: string): Prom
 export async function callOpenAIAPI(documentText: string, model: string) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || '',
+    timeout: 60000, // 60 second timeout
+    maxRetries: 3
   });
 
   // Verify we're working with decoded text
@@ -83,8 +85,8 @@ export async function callOpenAIAPI(documentText: string, model: string) {
     let validModel = model === 'gpt-4o' ? 'gpt-4' : model;
     console.log('Using OpenAI model:', validModel);
     
-    // Split document into chunks of roughly 2000 characters
-    const chunkSize = 2000;
+    // Split document into smaller chunks (1000 chars for better reliability)
+    const chunkSize = 1000;
     const chunks = [];
     for (let i = 0; i < documentText.length; i += chunkSize) {
       chunks.push(documentText.slice(i, i + chunkSize));
@@ -100,6 +102,7 @@ export async function callOpenAIAPI(documentText: string, model: string) {
       
       while (retryCount < maxRetries) {
         try {
+          console.log(`Processing chunk ${chunks.indexOf(chunk) + 1}/${chunks.length}`);
           const completion = await openai.chat.completions.create({
             model: validModel,
             messages: [
@@ -113,7 +116,7 @@ export async function callOpenAIAPI(documentText: string, model: string) {
               }
             ],
             temperature: 0.1,
-            max_tokens: 2000
+            max_tokens: 1000
           });
 
           const message = completion.choices[0]?.message;
@@ -121,7 +124,7 @@ export async function callOpenAIAPI(documentText: string, model: string) {
             throw new Error('Invalid response format from OpenAI API');
           }
 
-          console.log('Raw response from chunk:', message.content);
+          console.log(`Raw response from chunk ${chunks.indexOf(chunk) + 1}:`, message.content);
           
           try {
             // Ensure the response is valid JSON and matches our expected format
@@ -135,12 +138,13 @@ export async function callOpenAIAPI(documentText: string, model: string) {
             }
             break; // Success, exit retry loop
           } catch (parseError) {
-            console.error('Failed to parse chunk response:', parseError);
+            console.error(`Failed to parse chunk ${chunks.indexOf(chunk) + 1} response:`, parseError);
             console.error('Raw content that failed to parse:', message.content);
             throw parseError; // Re-throw to trigger retry
           }
         } catch (error) {
           retryCount++;
+          console.error(`Error processing chunk ${chunks.indexOf(chunk) + 1}, attempt ${retryCount}:`, error);
           
           // If it's a rate limit error and we're using GPT-4, fallback to GPT-3.5-turbo
           if (error && typeof error === 'object' && 'code' in error && error.code === 'rate_limit_exceeded' && validModel.includes('gpt-4')) {
@@ -149,9 +153,10 @@ export async function callOpenAIAPI(documentText: string, model: string) {
             continue;
           }
           
-          // If we've exhausted retries, throw the error
+          // If we've exhausted retries, continue to next chunk
           if (retryCount === maxRetries) {
-            throw error;
+            console.error(`Failed to process chunk ${chunks.indexOf(chunk) + 1} after ${maxRetries} attempts`);
+            continue;
           }
           
           // Wait before retrying (exponential backoff)
@@ -166,6 +171,7 @@ export async function callOpenAIAPI(documentText: string, model: string) {
       index === self.findIndex((e) => e.date === event.date && e.event === event.event)
     );
 
+    console.log('Final results:', JSON.stringify({ dateEventTable: uniqueResults }, null, 2));
     return {
       dateEventTable: uniqueResults
     };
