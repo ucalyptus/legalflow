@@ -37,6 +37,21 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getCases } from "@/app/actions/documents"
 
+// Type for raw case data from Prisma
+interface PrismaCase {
+  id: string
+  title: string
+  clientName: string
+  status: string
+  nextHearing: Date | null
+  updatedAt: Date
+  priority: string
+  caseType: string
+  assignedTo: string[]
+  filingDate: Date
+  documents: unknown[]
+}
+
 // Map Prisma CaseStatus to UI status
 const mapCaseStatus = (status: string) => {
   const statusMap: { [key: string]: "Ongoing" | "Settled" | "Under Review" | "Pending" } = {
@@ -71,7 +86,7 @@ export default function CasesPage() {
     async function loadCases() {
       const loadedCases = await getCases()
       // Map the loaded cases to match the CaseItem interface
-      const mappedCases: CaseItem[] = loadedCases.map((c: any) => ({
+      const mappedCases: CaseItem[] = loadedCases.map((c: PrismaCase) => ({
         ...c,
         status: mapCaseStatus(c.status),
         priority: c.priority.charAt(0) + c.priority.slice(1).toLowerCase() as "High" | "Medium" | "Low",
