@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DocStatus } from "@prisma/client"
+import { DocStatus } from "@/types/documents"
 import { cn } from "@/lib/utils"
 import { FileText, Share2, Download } from "lucide-react"
 

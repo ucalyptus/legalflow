@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DocStatus } from "@prisma/client"
 
 interface DocumentFiltersProps {
   statusFilter: string[]

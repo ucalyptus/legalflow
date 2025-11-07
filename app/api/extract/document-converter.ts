@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import * as pdfjsLib from 'pdf-parse';
+import pdfjsLib from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import { detect } from 'jschardet';
 
@@ -62,10 +62,7 @@ export async function convertToPlainText(buffer: Buffer, mimeType: string): Prom
     } 
     
     if (mimeType === 'application/pdf') {
-      const data = await pdfjsLib(buffer, {
-        disableFontFace: true,
-        useSystemFonts: false
-      });
+      const data = await pdfjsLib(buffer);
       if (!data || !data.text) {
         throw new Error('PDF extraction produced no text');
       }
@@ -83,11 +80,7 @@ export async function convertToPlainText(buffer: Buffer, mimeType: string): Prom
 async function extractFromPDF(buffer: Buffer): Promise<string> {
   console.log('Extracting text from PDF...');
   try {
-    const data = await pdfjsLib(buffer, {
-      disableFontFace: true,
-      useSystemFonts: false,
-      verbosity: 1
-    });
+    const data = await pdfjsLib(buffer);
 
     if (!data || !data.text) {
       throw new Error('PDF extraction produced no text');
