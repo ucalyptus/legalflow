@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Share2, Download } from "lucide-react"
-import { DocStatus } from "@prisma/client"
+import { DocStatus } from "@/types/documents"
 import TagManager from "@/components/TagManager"
 
 interface Document {

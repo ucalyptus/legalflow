@@ -1,3 +1,10 @@
+export enum DocStatus {
+  DRAFT = "DRAFT",
+  SUBMITTED = "SUBMITTED",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  APPROVED = "APPROVED"
+}
+
 export interface DocumentItem {
   id: string
   title: string

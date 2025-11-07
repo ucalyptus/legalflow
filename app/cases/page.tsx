@@ -71,7 +71,7 @@ export default function CasesPage() {
     async function loadCases() {
       const loadedCases = await getCases()
       // Map the loaded cases to match the CaseItem interface
-      const mappedCases: CaseItem[] = loadedCases.map(c => ({
+      const mappedCases: CaseItem[] = loadedCases.map((c: any) => ({
         ...c,
         status: mapCaseStatus(c.status),
         priority: c.priority.charAt(0) + c.priority.slice(1).toLowerCase() as "High" | "Medium" | "Low",

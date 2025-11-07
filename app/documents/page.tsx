@@ -12,7 +12,7 @@ import { DocumentViewer } from "@/components/documents/document-viewer"
 import { getDocuments, getDocumentTags, updateDocumentTags } from "@/app/actions/documents"
 import TagManager from "@/components/TagManager"
 import Tag from "@/components/Tag"
-import { DocStatus } from "@prisma/client"
+import { DocStatus } from "@/types/documents"
 import { Badge } from "@/components/ui/badge"
 import { 
   DropdownMenu, 
